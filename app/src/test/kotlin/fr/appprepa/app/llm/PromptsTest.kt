@@ -131,4 +131,32 @@ class PromptsTest {
         assertEquals(Verdict.PARTIEL, judgement.verdict)
         assertEquals("L'ensemble {0} compte.", judgement.spokenFeedback)
     }
+
+    @Test
+    fun `une reponse juste ne se fait pas reexpliquer en entier`() {
+        val recap = "Oui. La dérivée d'un produit vaut u prime v plus u v prime, " +
+            "et on l'obtient en développant le taux d'accroissement, ce qui donne " +
+            "après passage à la limite la formule attendue."
+        val json = """{"verdict":"correct","ease":3,"spoken_feedback":"$recap","topic":"t"}"""
+
+        val dit = Prompts.parseJudgement(json, buttonCount = 4).spokenFeedback
+        assertTrue("trop long pour une reponse juste : $dit", dit.split(" ").size <= 12)
+        assertTrue(dit.startsWith("Oui."))
+    }
+
+    @Test
+    fun `une reponse fausse garde de quoi corriger`() {
+        val correction = "Non. La dérivée d'un produit vaut u prime v plus u v prime, " +
+            "et non le produit des dérivées."
+        val json = """{"verdict":"faux","ease":1,"spoken_feedback":"$correction","topic":"t"}"""
+
+        val dit = Prompts.parseJudgement(json, buttonCount = 4).spokenFeedback
+        assertEquals("une correction ne se tronque pas comme une confirmation", correction, dit)
+    }
+
+    @Test
+    fun `le prompt demande d'etre bref quand la reponse est juste`() {
+        val prompt = Prompts.judge(card, listOf("point"), "ma reponse", "")
+        assertTrue(prompt.lowercase().contains("réexplique") || prompt.contains("confirme"))
+    }
 }

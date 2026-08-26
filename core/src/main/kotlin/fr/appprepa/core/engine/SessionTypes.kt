@@ -45,7 +45,14 @@ sealed interface SessionState {
     /** La carte est connue, sa reformulation est en vol. */
     data class Preparing(val card: ReviewCard) : SessionState
     data class Asking(val inFlight: CardInFlight) : SessionState
-    data class Listening(val inFlight: CardInFlight) : SessionState
+    /**
+     * [partial] porte ce qui a deja ete entendu quand la phrase a ete relancee : la
+     * reconnaissance vocale coupe sur un silence, sans savoir si c'etait la fin.
+     */
+    data class Listening(
+        val inFlight: CardInFlight,
+        val partial: String = "",
+    ) : SessionState
     data class Judging(val inFlight: CardInFlight, val transcript: String) : SessionState
     data class SpeakingVerdict(
         val inFlight: CardInFlight,
@@ -134,6 +141,8 @@ data class Session(
     val stats: SessionStats = SessionStats(),
     val writeMode: WriteMode = WriteMode.JOURNAL_ONLY,
     val retriedAnswer: Boolean = false,
+    /** Une seule relance par carte : au-dela, insister vaut moins que juger. */
+    val askedToContinue: Boolean = false,
     /** Echecs d'ecoute consecutifs. Remis a zero des qu'une reponse est entendue. */
     val listenFailures: Int = 0,
     /** Nombre de cartes exploitables chargees au depart. */

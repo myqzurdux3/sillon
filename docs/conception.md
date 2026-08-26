@@ -283,6 +283,7 @@ Format du journal, un objet JSON par ligne :
 |---|---|
 | Réseau perdu | Mode dégradé : le recto est lu tel quel, l'utilisateur répond, le verso est lu, l'utilisateur dicte lui-même sa note. Le mode dégradé ne vaut que **pour la carte où la panne a eu lieu** : chaque nouvelle carte retente le modèle, donc la session revient d'elle-même au mode normal dès le réseau revenu. Sans cette reprise, une coupure de dix secondes condamnerait tout le trajet |
 | Transcript vide ou silence | Une relance (« je t'écoute »), puis note 1 et carte suivante |
+| Phrase coupée par un silence de réflexion | La reconnaissance rend la main sur un silence sans savoir si la phrase était finie. Quand elle s'arrête sur un mot qui appelle une suite, l'application redemande une fois et recolle les deux morceaux, plutôt que de juger une demi-réponse. Un silence après la relance vaut « j'ai fini » : ce qui a été entendu est jugé, jamais jeté |
 | Appel LLM en échec ou JSON invalide | Un réessai, puis bascule sur le mode dégradé ci-dessus pour cette carte |
 | AnkiDroid absent, permission refusée, collection verrouillée | Échec immédiat et explicite au démarrage, annoncé vocalement et affiché — jamais en cours de trajet |
 | Aucune carte due | Annonce et fin propre |
@@ -367,4 +368,10 @@ coupé en deux blocs thématiques révise mal.
    concurrent peut échouer. Le refus est désormais compté, journalisé et annoncé en fin
    de session ; reste à mesurer sa fréquence à l'usage.
 4. **Longueur des versos.** Les fiches de prépa sont verbeuses ; le plafonnement du retour
-   oral est une contrainte de rythme, pas un détail cosmétique.
+   oral est une contrainte de rythme, pas un détail cosmétique. Une réponse juste n'a droit
+   qu'à une confirmation de quelques mots : réentendre ce qu'on vient de réciter n'apprend
+   rien et coûte du trajet. Les explications sont réservées à ce qui a été raté.
+5. **Le seuil de relance.** La liste des mots qui « appellent une suite » est une
+   heuristique, pas une grammaire. Le doute penche vers la relance : redemander coûte une
+   seconde, juger une demi-réponse coûte une note fausse. Reste à voir, à l'usage, si le
+   compromis est bien placé.

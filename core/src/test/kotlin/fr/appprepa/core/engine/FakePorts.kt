@@ -56,6 +56,9 @@ class FakeTutor(
         return ReformulatedQuestion("Question sur ${card.noteId} ?", listOf("point ${card.noteId}"))
     }
 
+    /** Ce qui a reellement ete soumis au jugement, pour verifier le recollement. */
+    val transcripts = mutableListOf<String>()
+
     override suspend fun judge(
         card: ReviewCard,
         expectedPoints: List<String>,
@@ -63,6 +66,7 @@ class FakeTutor(
         memory: SessionMemory,
     ): Judgement {
         if (card.noteId in failOn) error("panne simulee")
+        transcripts += transcript
         val verdict = verdicts[card.noteId] ?: Verdict.CORRECT
         return Judgement(verdict, Ease.fromVerdict(verdict), "retour", null, "theme")
     }

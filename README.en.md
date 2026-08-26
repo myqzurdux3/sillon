@@ -14,7 +14,7 @@
   <img alt="MIT licence" src="https://img.shields.io/badge/licence-MIT-FF4D2E">
   <img alt="Android 12+" src="https://img.shields.io/badge/Android-12%2B-FF4D2E">
   <img alt="Kotlin, 100% Compose" src="https://img.shields.io/badge/Kotlin-100%25%20Compose-FF4D2E">
-  <img alt="183 JVM tests" src="https://img.shields.io/badge/JVM%20tests-183-FF4D2E">
+  <img alt="198 JVM tests" src="https://img.shields.io/badge/JVM%20tests-198-FF4D2E">
   <img alt="15 instrumented tests" src="https://img.shields.io/badge/instrumented%20tests-15-FF4D2E">
   <img alt="Hands free" src="https://img.shields.io/badge/hands-free-0B0B0C">
 </p>
@@ -83,6 +83,14 @@ The app listens in French. Grades: « à revoir », « faux », « difficile »,
 A command is only recognised when it is the whole sentence: "je ne suis pas sûr, passe"
 counts as an answer. Otherwise half the answers would trigger a command.
 
+**Groping for words does not cut your answer short.** When a sentence stops on a word that
+demands a continuation — "la dérivée de ce produit vaut *donc*" — the app says "continue, je
+t'écoute" and stitches both halves together before grading. Silence after the prompt means
+"I'm done": what was heard gets graded, never discarded.
+
+**A correct answer is not explained back to you.** A few words of confirmation, then on to
+the next card: hearing the card back after reciting it teaches nothing and costs commute.
+
 The full list lives in the app, under Settings → « Ce que tu peux dire ». It is built from
 the parser itself: a hand-copied cheat sheet ends up advertising words that do not work, and
 at the wheel you cannot tell whether the word, the microphone or the road noise failed.
@@ -109,7 +117,7 @@ That boundary is what makes the loop testable: a full session replays in millise
 without an emulator, a microphone or a network, through six doubled ports.
 
 ```bash
-./gradlew :core:test               # 154 tests, no Android
+./gradlew :core:test               # 166 tests, no Android
 bash scripts/prepare-emulator.sh   # installs AnkiDroid on the emulator
 ./gradlew :app:connectedDebugAndroidTest
 ```

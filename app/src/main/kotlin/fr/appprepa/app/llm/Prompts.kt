@@ -16,6 +16,13 @@ object Prompts {
 
     const val MAX_SPOKEN_WORDS = 40
 
+    /**
+     * Quand la reponse est juste, il n'y a rien a apprendre : reentendre trente mots de
+     * verso qu'on vient de reciter fait perdre le rythme et allonge le trajet pour rien.
+     * On confirme, et on enchaine.
+     */
+    const val MAX_SPOKEN_WORDS_CORRECT = 12
+
     private val json = Json { ignoreUnknownKeys = true; isLenient = true }
 
     val SYSTEM = """
@@ -69,8 +76,12 @@ object Prompts {
 
             verdict : "correct", "partiel" ou "faux".
             ease : 1 si faux, 2 si partiel, 3 si correct, 4 si correct ET formulé avec précision.
-            spoken_feedback : ce que tu diras à voix haute. $MAX_SPOKEN_WORDS mots maximum.
-              Si la réponse est fausse ou partielle, donne l'essentiel de la bonne réponse.
+            spoken_feedback : ce que tu diras à voix haute.
+              Si la réponse est CORRECTE : confirme en $MAX_SPOKEN_WORDS_CORRECT mots maximum
+              et ne réexplique rien. L'élève vient de le dire, il n'a pas besoin de
+              l'entendre une seconde fois. « Exact. » suffit souvent.
+              Si elle est fausse ou partielle : donne l'essentiel de ce qui manque,
+              $MAX_SPOKEN_WORDS mots maximum. C'est là que tu es utile.
             formulation_note : uniquement si le fond était juste mais la formulation confuse.
               Une remarque courte et actionnable. Sinon null.
             topic : le thème de la carte, deux ou trois mots.
@@ -132,7 +143,12 @@ object Prompts {
         return Judgement(
             verdict = verdict,
             ease = ease.clampTo(buttonCount),
-            spokenFeedback = truncate(feedback),
+            // Le code ne compte pas non plus sur le modele pour tenir sa longueur.
+            spokenFeedback = if (verdict == Verdict.CORRECT) {
+                confirm(feedback)
+            } else {
+                truncate(feedback)
+            },
             formulationNote = obj["formulation_note"]?.jsonPrimitive?.contentOrNull
                 ?.trim()?.takeIf { it.isNotEmpty() && it != "null" },
             topic = obj["topic"]?.jsonPrimitive?.contentOrNull?.trim()?.takeIf { it.isNotEmpty() },
@@ -173,6 +189,23 @@ object Prompts {
             }
         }
         return null
+    }
+
+    /**
+     * Une confirmation, pas un resume : on garde la premiere phrase, et rien de plus.
+     * Le modele a beau avoir la consigne, c'est le code qui la fait respecter.
+     */
+    internal fun confirm(text: String): String {
+        val propre = text.trim()
+        if (propre.isEmpty()) return propre
+        val fin = propre.indexOfFirst { it in charArrayOf('.', '!', '?') }
+        val premiere = if (fin >= 0) propre.substring(0, fin + 1) else propre
+        val mots = premiere.split(Regex("\\s+")).filter { it.isNotEmpty() }
+        return if (mots.size <= MAX_SPOKEN_WORDS_CORRECT) {
+            premiere
+        } else {
+            mots.take(MAX_SPOKEN_WORDS_CORRECT).joinToString(" ") + "…"
+        }
     }
 
     /** Coupe a la phrase : un verso de fiche de prepa lu en entier casse le rythme. */

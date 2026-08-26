@@ -8,6 +8,7 @@ import fr.appprepa.core.model.Judgement
 import fr.appprepa.core.model.Verdict
 import fr.appprepa.core.model.WriteMode
 import fr.appprepa.core.text.MathSpeech
+import fr.appprepa.core.text.Utterance
 import fr.appprepa.core.voice.VoiceCommand
 import fr.appprepa.core.voice.VoiceCommandParser
 
@@ -93,7 +94,7 @@ object ReviewSessionEngine {
                 askedAtMs = nowMs,
             )
             return Reduction(
-                session.copy(state = SessionState.Asking(inFlight), retriedAnswer = false),
+                session.copy(state = SessionState.Asking(inFlight), retriedAnswer = false, askedToContinue = false),
                 listOf(Effect.Speak(event.question.question)),
             )
         }
@@ -270,7 +271,7 @@ object ReviewSessionEngine {
         state: SessionState.Revisiting,
         nowMs: Long,
     ): Reduction = Reduction(
-        session.copy(state = SessionState.Asking(state.inFlight), retriedAnswer = false),
+        session.copy(state = SessionState.Asking(state.inFlight), retriedAnswer = false, askedToContinue = false),
         listOf(Effect.Speak(state.inFlight.question)),
     )
 
@@ -310,7 +311,33 @@ object ReviewSessionEngine {
         VoiceCommand.Undo -> dropPending(session, "annulee a la voix")
 
         // Une correction de note n'a pas de sens pendant la reponse : c'est du texte.
-        else -> if (session.degraded) {
+        else -> answerGiven(session, state, Utterance.join(state.partial, transcript), nowMs)
+    }
+
+    /**
+     * La reponse est complete, ou bien elle s'arrete sur un mot qui appelle une suite.
+     * Dans ce second cas on redemande une fois, plutot que de juger une demi-phrase :
+     * chercher ses mots au volant est normal, et la reconnaissance vocale rend la main
+     * sur un silence sans savoir si c'etait la fin.
+     */
+    private fun answerGiven(
+        session: Session,
+        state: SessionState.Listening,
+        transcript: String,
+        nowMs: Long,
+    ): Reduction {
+        if (!session.askedToContinue && Utterance.looksUnfinished(transcript)) {
+            return Reduction(
+                session.copy(
+                    state = SessionState.Listening(state.inFlight, transcript),
+                    askedToContinue = true,
+                ),
+                // L'etat ne change pas : la fin de cet enonce rouvre l'ecoute.
+                listOf(Effect.Speak("Continue, je t'écoute.")),
+            )
+        }
+
+        return if (session.degraded) {
             speakAnswerForSelfGrade(session, state.inFlight, transcript)
         } else {
             Reduction(
@@ -394,7 +421,11 @@ object ReviewSessionEngine {
     private fun onHeardNothing(session: Session, nowMs: Long): Reduction =
         when (val state = session.state) {
             is SessionState.Listening ->
-                if (!session.retriedAnswer) {
+                // Le silence apres une relance veut dire « j'ai fini » : ce qui a deja
+                // ete entendu est une reponse, et la jeter serait la pire des reactions.
+                if (state.partial.isNotEmpty()) {
+                    answerGiven(session, state, state.partial, nowMs)
+                } else if (!session.retriedAnswer) {
                     Reduction(
                         session.copy(
                             state = SessionState.Asking(state.inFlight),
@@ -514,7 +545,7 @@ object ReviewSessionEngine {
                 val spoken = MathSpeech.verbalize(state.card.question)
                 val inFlight = CardInFlight(state.card, spoken, emptyList(), nowMs)
                 Reduction(
-                    degraded.copy(state = SessionState.Asking(inFlight), retriedAnswer = false),
+                    degraded.copy(state = SessionState.Asking(inFlight), retriedAnswer = false, askedToContinue = false),
                     listOf(Effect.Speak(spoken)),
                 )
             }
@@ -632,7 +663,12 @@ object ReviewSessionEngine {
         // nouvelle carte retente le LLM : sans cela, une coupure de dix secondes
         // condamnerait tout le reste du trajet a la lecture brute. L'echec est immediat
         // quand le reseau est vraiment coupe, et borne par le delai du client sinon.
-        val repart = session.copy(degraded = false, queue = rest, retriedAnswer = false)
+        val repart = session.copy(
+            degraded = false,
+            queue = rest,
+            retriedAnswer = false,
+            askedToContinue = false,
+        )
 
         val ready = session.prefetch?.takeIf { session.prefetchFor == next.noteId }
         return if (ready != null) {

@@ -162,4 +162,33 @@ class FullSessionTest {
                 journal.entries.all { it.committedEase == null },
             )
         }
+
+    @Test
+    fun `une phrase relancee traverse la boucle et arrive recollee au jugement`() = runTest {
+        val cards = listOf(card(1))
+        val tutor = FakeTutor()
+        // Premier morceau coupe par un silence de reflexion, puis la suite, puis le
+        // silence de la fenetre de correction.
+        val script = mutableListOf<String?>(
+            "la dérivée de ce produit vaut donc",
+            "u prime v plus u v prime",
+            null,
+        )
+        loop(cards, script, tutor = tutor).run(emptySet(), 30)
+
+        assertEquals(
+            listOf("la dérivée de ce produit vaut donc u prime v plus u v prime"),
+            tutor.transcripts,
+        )
+    }
+
+    @Test
+    fun `un silence apres la relance ne fait pas perdre le debut de la reponse`() = runTest {
+        val cards = listOf(card(1))
+        val tutor = FakeTutor()
+        val script = mutableListOf<String?>("la limite vaut donc", null, null)
+        loop(cards, script, tutor = tutor).run(emptySet(), 30)
+
+        assertEquals(listOf("la limite vaut donc"), tutor.transcripts)
+    }
 }

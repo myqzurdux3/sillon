@@ -102,6 +102,27 @@ Après chaque verdict, tu as **sept secondes** pour corriger — douze en mode d
 dois dicter la note toi-même. Si tu ne dis rien, la note proposée est retenue et
 l'application enchaîne.
 
+### Si tu cherches tes mots
+
+Deux choses te laissent le temps de réfléchir au milieu d'une phrase.
+
+La reconnaissance vocale attend **deux secondes et demie** de silence avant de considérer
+que tu as fini. Au-delà, si ta phrase s'arrête sur un mot qui appelle une suite — « la
+dérivée de ce produit vaut **donc** » —, l'application ne juge pas une demi-réponse : elle
+dit « continue, je t'écoute », et recolle les deux morceaux avant de corriger.
+
+Elle ne relance qu'une fois par carte. Si tu ne dis rien après la relance, elle juge ce que
+tu avais déjà dit — jamais elle ne le jette.
+
+Une lettre isolée ne compte pas comme un mot en suspens : sur des fiches de maths, « sinus
+de a » est une phrase finie.
+
+### Quand tu as bon
+
+Elle ne réexplique pas. Une réponse juste vaut une confirmation de quelques mots — tu viens
+de le dire, l'entendre une seconde fois ne t'apprend rien et allonge le trajet. Les
+explications sont réservées à ce que tu as raté : c'est là qu'elles servent.
+
 ### Revenir en arrière
 
 La note d'une carte n'est écrite qu'au moment où tu réponds à la suivante. Tant qu'elle

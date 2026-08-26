@@ -14,7 +14,7 @@
   <img alt="Licence MIT" src="https://img.shields.io/badge/licence-MIT-FF4D2E">
   <img alt="Android 12+" src="https://img.shields.io/badge/Android-12%2B-FF4D2E">
   <img alt="Kotlin, 100% Compose" src="https://img.shields.io/badge/Kotlin-100%25%20Compose-FF4D2E">
-  <img alt="183 tests JVM" src="https://img.shields.io/badge/tests%20JVM-183-FF4D2E">
+  <img alt="198 tests JVM" src="https://img.shields.io/badge/tests%20JVM-198-FF4D2E">
   <img alt="15 tests instrumentés" src="https://img.shields.io/badge/tests%20instrument%C3%A9s-15-FF4D2E">
   <img alt="Mains libres" src="https://img.shields.io/badge/mains-libres-0B0B0C">
 </p>
@@ -90,6 +90,14 @@ que l'application écoute.
 Une commande n'est reconnue que si elle constitue toute la phrase : « je ne suis pas sûr,
 passe » compte comme une réponse. Sinon la moitié des réponses déclencheraient une commande.
 
+**Chercher ses mots ne coupe pas la réponse.** Si la phrase s'arrête sur un mot qui appelle
+une suite — « la dérivée de ce produit vaut *donc* » —, l'application dit « continue, je
+t'écoute » et recolle les deux morceaux avant de juger. Un silence après la relance vaut
+« j'ai fini » : ce qui a été entendu est jugé, jamais jeté.
+
+**Une réponse juste ne se fait pas réexpliquer.** Quelques mots de confirmation, et on
+enchaîne : réentendre le verso qu'on vient de réciter n'apprend rien et allonge le trajet.
+
 La liste complète vit dans l'application, sous Réglages → « Ce que tu peux dire ». Elle est
 produite à partir du parseur lui-même : une notice recopiée à la main finit par annoncer des
 mots qui ne marchent pas, et au volant on ne peut pas savoir si c'est le mot, le micro ou le
@@ -122,7 +130,7 @@ quelques millisecondes, sans émulateur, sans micro et sans réseau, à travers 
 doublés.
 
 ```bash
-./gradlew :core:test               # 154 tests, sans Android
+./gradlew :core:test               # 166 tests, sans Android
 bash scripts/prepare-emulator.sh   # installe AnkiDroid sur l'émulateur
 ./gradlew :app:connectedDebugAndroidTest
 ```

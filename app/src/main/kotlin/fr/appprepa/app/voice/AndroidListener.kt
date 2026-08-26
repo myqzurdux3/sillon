@@ -24,6 +24,18 @@ class AndroidListener(private val context: Context) : Listener {
     private val main = Handler(Looper.getMainLooper())
 
     companion object {
+
+        /**
+         * Silence apres lequel la reconnaissance considere la phrase finie.
+         *
+         * Une seconde et demie coupait quelqu'un qui cherche ses mots. Deux secondes et
+         * demie laissent le temps de reflechir sans allonger l'attente au point qu'on se
+         * demande si l'application a entendu. Ce qui depasse cette pause est rattrape
+         * autrement : le moteur relance quand la phrase s'arrete sur un mot qui appelle
+         * une suite, voir `Utterance`.
+         */
+        const val SILENCE_FIN_MS = 2_500L
+
         /**
          * Verifie que l'ecoute est possible avant de partir. AnkiDroid et la synthese
          * vocale sont deja controles au demarrage ; le micro ne l'etait pas, et une
@@ -106,8 +118,14 @@ class AndroidListener(private val context: Context) : Listener {
                     putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
                     putExtra(
                         RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS,
-                        1_500L,
+                        SILENCE_FIN_MS,
                     )
+                    putExtra(
+                        RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS,
+                        SILENCE_FIN_MS,
+                    )
+                    // Un « oui » lache tout de suite ne doit pas etre pris pour du bruit.
+                    putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, 1_000L)
                 }
 
                 expiry = Runnable { settle(ListenResult.Silence) }
