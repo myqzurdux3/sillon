@@ -9,3 +9,7 @@ captures/
 *.apk
 *.keystore
 secrets.properties
+
+# fichiers de test volumineux, non versionnes
+*.apkg
+ankidroid-*.apk

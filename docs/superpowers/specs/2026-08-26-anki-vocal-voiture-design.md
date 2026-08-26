@@ -308,6 +308,31 @@ Le service de premier plan garantit que la session survit à l'extinction de l'�
   puisque l'émulateur n'a pas d'entrée audio réaliste. Indispensable pour itérer sur les
   prompts sans monter en voiture.
 
+## 14 bis. Le LaTeX, découvert sur le deck réel
+
+Le deck de l'utilisateur, importé et sondé le 2026-08-26, s'est révélé quasi intégralement
+composé de notation LaTeX :
+
+```
+Recto : Symétries et dérivées de \(\cos\) et \(\sin\) : \(\cos\) en \(-x\), \(x + 2\pi\)
+Verso : \(\cos\!\left(\frac{\pi}{2} - x\right) = \sin(x)\)
+```
+
+Lu tel quel, cela donne « backslash cos ». Le design initial ne prévoyait qu'un nettoyage
+HTML : insuffisant. Deux réponses, une par mode :
+
+- **Mode nominal.** Le prompt système impose au modèle d'énoncer les formules en français
+  parlé et lui interdit explicitement backslash, accolades et symboles. C'est le meilleur
+  verbaliseur disponible, et il a de toute façon la carte sous les yeux.
+- **Mode dégradé.** Aucun modèle n'est joignable, il faut donc traduire soi-même :
+  `MathSpeech` (dans `:core`) convertit les constructions fréquentes d'un deck de prépa —
+  fonctions usuelles, lettres grecques, fractions, puissances, indices, relations. Ce n'est
+  pas un moteur LaTeX ; une formule très imbriquée en ressortira approximative. Mais jamais
+  sous forme de notation brute, seul résultat vraiment inacceptable au volant.
+
+Vérifié sur les vingt premières cartes dues du deck réel : aucun backslash ne survit, et
+`\(\sin(2a) = 2\sin(a)\cos(a)\)` s'énonce « sinus de 2 a égale 2 sinus de a cosinus de a ».
+
 ## 15. Hors périmètre v1
 
 Écartés délibérément : application Android Auto dédiée, speech-to-speech temps réel,

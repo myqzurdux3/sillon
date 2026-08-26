@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Nuit d'hiver a l'heure du trajet du matin. -->
+    <color name="kholle_night">#121C33</color>
+    <color name="kholle_paper">#F4F0E6</color>
+    <color name="kholle_amber">#F2A65A</color>
+</resources>
