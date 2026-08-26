@@ -269,15 +269,28 @@ object ReviewSessionEngine {
         )
     }
 
-    /** Le LLM a lache : on lit le verso et l'utilisateur se note lui-meme. */
+    /**
+     * Le LLM a lache. Deux situations distinctes :
+     * - la reformulation a echoue, la question n'a pas encore ete posee : on lit le recto
+     *   tel quel et la session reprend son cours normal, en degrade ;
+     * - le jugement a echoue, la reponse a deja ete donnee : on lit le verso et
+     *   l'utilisateur se note lui-meme.
+     */
     private fun onTutorFailed(session: Session, nowMs: Long): Reduction {
-        val inFlight = when (val state = session.state) {
-            is SessionState.Judging -> state.inFlight
-            is SessionState.Preparing ->
-                CardInFlight(state.card, state.card.question, emptyList(), nowMs)
-            else -> return Reduction(session.copy(degraded = true), emptyList())
+        val degraded = session.copy(degraded = true)
+        return when (val state = session.state) {
+            is SessionState.Judging -> speakAnswerForSelfGrade(degraded, state.inFlight)
+
+            is SessionState.Preparing -> {
+                val inFlight = CardInFlight(state.card, state.card.question, emptyList(), nowMs)
+                Reduction(
+                    degraded.copy(state = SessionState.Asking(inFlight), retriedAnswer = false),
+                    listOf(Effect.Speak(state.card.question)),
+                )
+            }
+
+            else -> Reduction(degraded, emptyList())
         }
-        return speakAnswerForSelfGrade(session.copy(degraded = true), inFlight)
     }
 
     private fun speakAnswerForSelfGrade(session: Session, inFlight: CardInFlight): Reduction =
