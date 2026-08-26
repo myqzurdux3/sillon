@@ -67,6 +67,7 @@ retente le modèle, donc une coupure de dix secondes sous un pont ne condamne pa
   <img src="docs/ecrans/accueil.png" alt="Écran d'accueil" width="240">
   <img src="docs/ecrans/session.png" alt="Session en cours" width="240">
   <img src="docs/ecrans/paquets.png" alt="Choix des paquets" width="240">
+  <img src="docs/ecrans/commandes.png" alt="Notice des commandes vocales" width="240">
 </p>
 
 Un mot d'état, un filet, le rang de la carte. La couleur ne sert qu'à une chose : signaler

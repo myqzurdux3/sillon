@@ -67,6 +67,7 @@ model, so ten seconds under a bridge does not condemn the rest of the commute.
   <img src="docs/ecrans/accueil.png" alt="Home screen" width="240">
   <img src="docs/ecrans/session.png" alt="Live session" width="240">
   <img src="docs/ecrans/paquets.png" alt="Deck picker" width="240">
+  <img src="docs/ecrans/commandes.png" alt="Voice command reference" width="240">
 </p>
 
 One state word, a rule, the card's rank. Colour serves one purpose: signalling that the app

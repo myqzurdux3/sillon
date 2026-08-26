@@ -98,8 +98,9 @@ private fun Commande(
                 modifier = Modifier.weight(1f),
             )
             // Une commande dite hors de sa fenetre ne fait rien : c'est ce qui surprend
-            // le plus, donc ca s'affiche a cote de chaque ligne, pas en note de bas de page.
-            Text(fenetre, fontSize = 12.sp, color = SillonPalette.rule)
+            // le plus, donc ca s'affiche a cote de chaque ligne, pas en note de bas de
+            // page — et dans une couleur qui se lit, pas dans celle des filets.
+            Text(fenetre, fontSize = 12.sp, color = SillonPalette.faint)
         }
 
         Text("« $principale »", fontSize = 19.sp, color = SillonPalette.accent)
