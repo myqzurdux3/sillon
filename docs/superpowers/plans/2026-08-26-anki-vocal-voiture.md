@@ -3747,7 +3747,7 @@ class SessionService : Service() {
 
     private fun notification(text: String) =
         NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("Anki Voix")
+            .setContentTitle("Khôlle")
             .setContentText(text)
             .setSmallIcon(android.R.drawable.ic_btn_speak_now)
             .setOngoing(true)
