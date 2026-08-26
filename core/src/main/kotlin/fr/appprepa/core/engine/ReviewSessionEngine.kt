@@ -4,13 +4,19 @@ import fr.appprepa.core.memory.SessionMemoryBuilder
 import fr.appprepa.core.model.Ease
 import fr.appprepa.core.model.JournalRecord
 import fr.appprepa.core.model.ReviewCard
+import fr.appprepa.core.model.Judgement
 import fr.appprepa.core.model.Verdict
 import fr.appprepa.core.model.WriteMode
+import fr.appprepa.core.voice.VoiceCommand
+import fr.appprepa.core.voice.VoiceCommandParser
 
 object ReviewSessionEngine {
 
     const val ANSWER_TIMEOUT_MS = 15_000L
     const val CORRECTION_TIMEOUT_MS = 3_000L
+
+    /** En mode degrade, l'utilisateur doit dicter sa note : il lui faut plus de temps. */
+    const val SELF_GRADE_TIMEOUT_MS = 8_000L
 
     fun reduce(session: Session, event: Event, nowMs: Long): Reduction = when (event) {
         is Event.Start -> Reduction(
@@ -24,8 +30,8 @@ object ReviewSessionEngine {
         is Event.Heard -> onHeard(session, event, nowMs)
         Event.HeardNothing -> onHeardNothing(session, nowMs)
         is Event.Judged -> onJudged(session, event, nowMs)
-        is Event.Explained -> Reduction(session, emptyList())
-        is Event.TutorFailed -> Reduction(session, emptyList())
+        is Event.Explained -> onExplained(session, event, nowMs)
+        is Event.TutorFailed -> onTutorFailed(session, nowMs)
         is Event.Fatal -> Reduction(
             session.copy(state = SessionState.Failed(event.reason)),
             listOf(Effect.Speak("Erreur : ${event.reason}"), Effect.Finish),
@@ -105,7 +111,16 @@ object ReviewSessionEngine {
                 session.copy(
                     state = SessionState.AwaitingCorrection(state.inFlight, state.assessment),
                 ),
-                listOf(Effect.Listen(ListenKind.CORRECTION, CORRECTION_TIMEOUT_MS)),
+                listOf(
+                    Effect.Listen(
+                        ListenKind.CORRECTION,
+                        if (state.assessment is Assessment.SelfGrade) {
+                            SELF_GRADE_TIMEOUT_MS
+                        } else {
+                            CORRECTION_TIMEOUT_MS
+                        },
+                    ),
+                ),
             )
 
             else -> Reduction(session, emptyList())
@@ -113,28 +128,173 @@ object ReviewSessionEngine {
 
     private fun onHeard(session: Session, event: Event.Heard, nowMs: Long): Reduction =
         when (val state = session.state) {
-            is SessionState.Listening -> Reduction(
-                session.copy(state = SessionState.Judging(state.inFlight, event.transcript)),
+            is SessionState.Listening -> onAnswerHeard(session, state, event.transcript, nowMs)
+            is SessionState.AwaitingCorrection ->
+                onCorrectionHeard(session, state, event.transcript, nowMs)
+            else -> Reduction(session, emptyList())
+        }
+
+    private fun onAnswerHeard(
+        session: Session,
+        state: SessionState.Listening,
+        transcript: String,
+        nowMs: Long,
+    ): Reduction = when (VoiceCommandParser.parse(transcript)) {
+        VoiceCommand.Stop -> finish(session, nowMs)
+
+        VoiceCommand.Repeat -> Reduction(
+            session.copy(state = SessionState.Asking(state.inFlight)),
+            listOf(Effect.Speak(state.inFlight.question)),
+        )
+
+        VoiceCommand.Skip -> advance(
+            session.copy(stats = session.stats.copy(skipped = session.stats.skipped + 1)),
+            listOf(
+                Effect.Record(
+                    skippedRecord(session, state.inFlight.card, nowMs, "passee a la voix"),
+                ),
+            ),
+            nowMs,
+        )
+
+        VoiceCommand.Explain -> Reduction(
+            session.copy(state = SessionState.Judging(state.inFlight, transcript)),
+            listOf(Effect.Explain(state.inFlight.card)),
+        )
+
+        // Une correction de note n'a pas de sens pendant la reponse : c'est du texte.
+        else -> if (session.degraded) {
+            speakAnswerForSelfGrade(session, state.inFlight)
+        } else {
+            Reduction(
+                session.copy(state = SessionState.Judging(state.inFlight, transcript)),
                 listOf(
                     Effect.Judge(
                         card = state.inFlight.card,
                         expectedPoints = state.inFlight.expectedPoints,
-                        transcript = event.transcript,
+                        transcript = transcript,
                         memory = session.memory,
                     ),
                 ),
             )
-
-            is SessionState.AwaitingCorrection -> settle(session, state, null, nowMs)
-
-            else -> Reduction(session, emptyList())
         }
+    }
+
+    private fun onCorrectionHeard(
+        session: Session,
+        state: SessionState.AwaitingCorrection,
+        transcript: String,
+        nowMs: Long,
+    ): Reduction = when (val command = VoiceCommandParser.parse(transcript)) {
+        is VoiceCommand.Correct -> settle(session, state, command.ease, nowMs)
+
+        VoiceCommand.Stop -> {
+            val settled = settle(session, state, null, nowMs)
+            if (settled.session.state is SessionState.Finished) {
+                settled
+            } else {
+                val ended = finish(settled.session, nowMs)
+                Reduction(ended.session, settled.effects + ended.effects)
+            }
+        }
+
+        // « annule » vise la carte precedente : elle n'est jamais ecrite, elle reste due.
+        VoiceCommand.Undo -> {
+            val dropped = session.pending
+            val cleared = session.copy(pending = null)
+            val trace = dropped?.let {
+                listOf(
+                    Effect.Record(
+                        it.record.copy(committedEase = null, note = "annulee a la voix"),
+                    ),
+                )
+            } ?: emptyList()
+            val settled = settle(cleared, state, null, nowMs)
+            Reduction(settled.session, trace + settled.effects)
+        }
+
+        else -> settle(session, state, null, nowMs)
+    }
 
     private fun onHeardNothing(session: Session, nowMs: Long): Reduction =
         when (val state = session.state) {
+            is SessionState.Listening ->
+                if (!session.retriedAnswer) {
+                    Reduction(
+                        session.copy(
+                            state = SessionState.Asking(state.inFlight),
+                            retriedAnswer = true,
+                        ),
+                        listOf(Effect.Speak("Je t'écoute.")),
+                    )
+                } else {
+                    val giveUp = Judgement(
+                        verdict = Verdict.FAUX,
+                        ease = Ease.AGAIN,
+                        spokenFeedback = "Pas de réponse. ${state.inFlight.card.answer}",
+                        missed = emptyList(),
+                        formulationNote = null,
+                        topic = null,
+                    )
+                    Reduction(
+                        session.copy(
+                            state = SessionState.SpeakingVerdict(
+                                state.inFlight,
+                                Assessment.Judged(giveUp),
+                            ),
+                        ),
+                        listOf(Effect.Speak(giveUp.spokenFeedback)),
+                    )
+                }
+
             is SessionState.AwaitingCorrection -> settle(session, state, null, nowMs)
             else -> Reduction(session, emptyList())
         }
+
+    private fun onExplained(session: Session, event: Event.Explained, nowMs: Long): Reduction {
+        val state = session.state as? SessionState.Judging ?: return Reduction(session, emptyList())
+        val judgement = Judgement(
+            verdict = Verdict.FAUX,
+            ease = Ease.AGAIN,
+            spokenFeedback = event.text,
+            missed = emptyList(),
+            formulationNote = null,
+            topic = null,
+        )
+        return Reduction(
+            session.copy(
+                state = SessionState.SpeakingVerdict(state.inFlight, Assessment.Judged(judgement)),
+            ),
+            listOf(Effect.Speak("${event.text} Je mets à revoir.")),
+        )
+    }
+
+    /** Le LLM a lache : on lit le verso et l'utilisateur se note lui-meme. */
+    private fun onTutorFailed(session: Session, nowMs: Long): Reduction {
+        val inFlight = when (val state = session.state) {
+            is SessionState.Judging -> state.inFlight
+            is SessionState.Preparing ->
+                CardInFlight(state.card, state.card.question, emptyList(), nowMs)
+            else -> return Reduction(session.copy(degraded = true), emptyList())
+        }
+        return speakAnswerForSelfGrade(session.copy(degraded = true), inFlight)
+    }
+
+    private fun speakAnswerForSelfGrade(session: Session, inFlight: CardInFlight): Reduction =
+        Reduction(
+            session.copy(
+                degraded = true,
+                state = SessionState.SpeakingVerdict(
+                    inFlight,
+                    Assessment.SelfGrade(inFlight.card.answer),
+                ),
+            ),
+            listOf(
+                Effect.Speak(
+                    "${inFlight.card.answer} Tu mets à revoir, difficile, bien ou facile ?",
+                ),
+            ),
+        )
 
     private fun onJudged(session: Session, event: Event.Judged, nowMs: Long): Reduction {
         val state = session.state as? SessionState.Judging ?: return Reduction(session, emptyList())
