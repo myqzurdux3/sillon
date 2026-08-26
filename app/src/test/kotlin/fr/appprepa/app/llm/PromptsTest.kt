@@ -45,6 +45,14 @@ class PromptsTest {
     }
 
     @Test
+    fun `le prompt systeme interdit la notation brute`() {
+        val system = Prompts.SYSTEM.lowercase()
+        assertTrue("les cartes sont pleines de LaTeX", system.contains("latex"))
+        assertTrue(system.contains("synthèse vocale") || system.contains("vocale"))
+        assertTrue("il faut interdire explicitement les backslash", system.contains("backslash"))
+    }
+
+    @Test
     fun `parse un jugement complet`() {
         val json = """
             {"verdict":"correct","ease":3,"spoken_feedback":"Bien vu.",

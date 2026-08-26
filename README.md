@@ -24,6 +24,9 @@ Trois décisions structurent tout le reste :
 - **Les écritures ont un tour de retard.** La note d'une carte n'est écrite qu'au moment où
   tu réponds à la suivante. Cela crée une vraie fenêtre pour dire « annule », alors que
   l'API AnkiDroid n'offre aucune annulation après coup.
+- **Le LaTeX est verbalisé, jamais épelé.** Les fiches de prépa sont écrites en notation
+  mathématique ; le modèle l'énonce en français parlé, et un convertisseur maison prend le
+  relais quand le réseau tombe.
 - **Le mode journal est le défaut.** Les premiers trajets n'écrivent rien : ils
   enregistrent ce que l'application *aurait* noté, pour que tu juges sa fiabilité sur tes
   propres fiches avant de lui confier ton calendrier de révision.

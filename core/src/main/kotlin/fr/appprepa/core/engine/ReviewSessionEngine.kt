@@ -7,6 +7,7 @@ import fr.appprepa.core.model.ReviewCard
 import fr.appprepa.core.model.Judgement
 import fr.appprepa.core.model.Verdict
 import fr.appprepa.core.model.WriteMode
+import fr.appprepa.core.text.MathSpeech
 import fr.appprepa.core.voice.VoiceCommand
 import fr.appprepa.core.voice.VoiceCommandParser
 
@@ -235,7 +236,8 @@ object ReviewSessionEngine {
                     val giveUp = Judgement(
                         verdict = Verdict.FAUX,
                         ease = Ease.AGAIN,
-                        spokenFeedback = "Pas de réponse. ${state.inFlight.card.answer}",
+                        spokenFeedback = "Pas de réponse. " +
+                            MathSpeech.verbalize(state.inFlight.card.answer),
                         missed = emptyList(),
                         formulationNote = null,
                         topic = null,
@@ -292,10 +294,13 @@ object ReviewSessionEngine {
                 speakAnswerForSelfGrade(degraded, state.inFlight, state.transcript)
 
             is SessionState.Preparing -> {
-                val inFlight = CardInFlight(state.card, state.card.question, emptyList(), nowMs)
+                // Sans LLM pour verbaliser, le LaTeX de la carte doit etre traduit ici,
+                // sinon la synthese prononce « backslash cos ».
+                val spoken = MathSpeech.verbalize(state.card.question)
+                val inFlight = CardInFlight(state.card, spoken, emptyList(), nowMs)
                 Reduction(
                     degraded.copy(state = SessionState.Asking(inFlight), retriedAnswer = false),
-                    listOf(Effect.Speak(state.card.question)),
+                    listOf(Effect.Speak(spoken)),
                 )
             }
 
@@ -319,7 +324,8 @@ object ReviewSessionEngine {
             ),
             listOf(
                 Effect.Speak(
-                    "${inFlight.card.answer} Tu mets à revoir, difficile, bien ou facile ?",
+                    MathSpeech.verbalize(inFlight.card.answer) +
+                        " Tu mets à revoir, difficile, bien ou facile ?",
                 ),
             ),
         )
@@ -405,14 +411,15 @@ object ReviewSessionEngine {
         val rest = session.queue.drop(1)
 
         if (session.degraded) {
-            val inFlight = CardInFlight(next, next.question, emptyList(), nowMs)
+            val spoken = MathSpeech.verbalize(next.question)
+            val inFlight = CardInFlight(next, spoken, emptyList(), nowMs)
             return Reduction(
                 session.copy(
                     state = SessionState.Asking(inFlight),
                     queue = rest,
                     retriedAnswer = false,
                 ),
-                carried + Effect.Speak(next.question),
+                carried + Effect.Speak(spoken),
             )
         }
 
