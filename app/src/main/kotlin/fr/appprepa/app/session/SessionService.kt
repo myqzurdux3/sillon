@@ -80,7 +80,14 @@ class SessionService : Service() {
 
         val session = SessionLoop(
             gateway = AnkiDroidGateway(contentResolver),
-            tutor = AnthropicTutor(settings.apiKey),
+            tutor = AnthropicTutor(
+                apiKey = settings.apiKey,
+                judgeModel = if (settings.fastJudge) {
+                    AnthropicTutor.FAST_JUDGE_MODEL
+                } else {
+                    AnthropicTutor.MODEL
+                },
+            ),
             speaker = FocusAwareSpeaker(tts, guard),
             listener = if (settings.debugTranscripts) {
                 DebugListener.shared
@@ -96,11 +103,15 @@ class SessionService : Service() {
         loop = session
 
         val mirror = scope.launch { session.state.collect { holder.publish(it) } }
+        val mirrorProgress = scope.launch {
+            session.progress.collect { holder.publishProgress(it.first, it.second) }
+        }
 
         val outcome = runCatching {
             guard.withFocus { session.run(settings.deckId, settings.cardLimit) }
         }
         mirror.cancel()
+        mirrorProgress.cancel()
         loop = null
 
         holder.finish(

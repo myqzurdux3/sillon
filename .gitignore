@@ -13,3 +13,6 @@ secrets.properties
 # fichiers de test volumineux, non versionnes
 *.apkg
 ankidroid-*.apk
+
+# secret, jamais versionne
+api-key.txt

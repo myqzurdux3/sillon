@@ -19,6 +19,8 @@ import fr.appprepa.app.settings.SettingsStore
 import fr.appprepa.core.model.JournalRecord
 import java.io.File
 
+private enum class Screen { HOME, SETTINGS, JOURNAL }
+
 class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -28,10 +30,11 @@ class MainActivity : ComponentActivity() {
         val journal = JsonlJournal(File(filesDir, "journal.jsonl"))
 
         setContent {
-            KholleTheme {
-                var showJournal by remember { mutableStateOf(false) }
+            SillonTheme {
+                var screen by remember { mutableStateOf(Screen.HOME) }
                 var entries by remember { mutableStateOf(emptyList<JournalRecord>()) }
                 var ankiMessage by remember { mutableStateOf("") }
+                var debugTranscripts by remember { mutableStateOf(settings.debugTranscripts) }
 
                 // Les permissions sont demandees a l'arret, jamais en roulant.
                 val permissions = rememberLauncherForActivityResult(
@@ -48,20 +51,33 @@ class MainActivity : ComponentActivity() {
                     )
                 }
 
-                LaunchedEffect(showJournal) {
-                    if (showJournal) entries = journal.today(System.currentTimeMillis())
+                LaunchedEffect(screen) {
+                    if (screen == Screen.JOURNAL) {
+                        entries = journal.today(System.currentTimeMillis())
+                    }
+                    if (screen == Screen.HOME) {
+                        debugTranscripts = settings.debugTranscripts
+                    }
                 }
 
-                if (showJournal) {
-                    JournalScreen(entries) { showJournal = false }
-                } else {
-                    HomeScreen(
-                        settings = settings,
-                        ankiMessage = ankiMessage,
+                when (screen) {
+                    Screen.HOME -> HomeScreen(
+                        debugTranscripts = debugTranscripts,
                         onStart = { SessionService.start(this@MainActivity) },
                         onStop = { SessionService.stop(this@MainActivity) },
-                        onOpenJournal = { showJournal = true },
+                        onOpenSettings = { screen = Screen.SETTINGS },
                     )
+
+                    Screen.SETTINGS -> SettingsScreen(
+                        settings = settings,
+                        ankiMessage = ankiMessage.ifBlank {
+                            AnkiAvailability.message(AnkiAvailability.check(this@MainActivity))
+                        },
+                        onOpenJournal = { screen = Screen.JOURNAL },
+                        onBack = { screen = Screen.HOME },
+                    )
+
+                    Screen.JOURNAL -> JournalScreen(entries) { screen = Screen.SETTINGS }
                 }
             }
         }

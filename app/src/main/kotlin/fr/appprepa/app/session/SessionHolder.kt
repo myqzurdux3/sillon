@@ -23,7 +23,11 @@ class SessionHolder {
     private val _isRunning = MutableStateFlow(false)
     val isRunning: StateFlow<Boolean> = _isRunning.asStateFlow()
 
+    private val _progress = MutableStateFlow(0 to 0)
+    val progress: StateFlow<Pair<Int, Int>> = _progress.asStateFlow()
+
     fun publish(state: SessionState) { _state.value = state }
+    fun publishProgress(position: Int, total: Int) { _progress.value = position to total }
     fun markRunning(running: Boolean) { _isRunning.value = running }
     fun clearOutcome() { _outcome.value = null }
 
@@ -31,6 +35,7 @@ class SessionHolder {
         _outcome.value = outcome
         _isRunning.value = false
         _state.value = SessionState.Idle
+        _progress.value = 0 to 0
     }
 
     companion object {

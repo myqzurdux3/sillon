@@ -110,6 +110,12 @@ data class Session(
     val writeMode: WriteMode = WriteMode.JOURNAL_ONLY,
     val deckId: Long? = null,
     val retriedAnswer: Boolean = false,
-)
+    /** Nombre de cartes exploitables chargees au depart. */
+    val total: Int = 0,
+) {
+    /** Rang de la carte en cours, borne au total : « carte 7 sur 32 ». */
+    val position: Int
+        get() = if (total == 0) 0 else (stats.answered + stats.skipped + 1).coerceAtMost(total)
+}
 
 data class Reduction(val session: Session, val effects: List<Effect>)

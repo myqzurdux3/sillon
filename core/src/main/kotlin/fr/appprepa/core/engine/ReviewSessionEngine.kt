@@ -51,6 +51,7 @@ object ReviewSessionEngine {
         }
         val afterSkips = session.copy(
             stats = session.stats.copy(skipped = session.stats.skipped + skipped.size),
+            total = usable.size,
         )
 
         val first = usable.firstOrNull()

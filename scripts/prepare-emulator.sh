@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Prepare un emulateur pour les tests instrumentes de Kholle :
+# Prepare un emulateur pour les tests instrumentes de Sillon :
 # installe AnkiDroid, accorde les permissions, verifie que la collection existe.
 #
 # Usage : bash scripts/prepare-emulator.sh [serial]
@@ -9,7 +9,7 @@ SERIAL="${1:-emulator-5554}"
 ANDROID_HOME="${ANDROID_HOME:-$HOME/Android/Sdk}"
 ADB="$ANDROID_HOME/platform-tools/adb"
 VERSION="2.24.0"
-WORK="${TMPDIR:-/tmp}/kholle-emulator"
+WORK="${TMPDIR:-/tmp}/sillon-emulator"
 mkdir -p "$WORK"
 
 abi="$("$ADB" -s "$SERIAL" shell getprop ro.product.cpu.abi | tr -d '\r')"
@@ -31,7 +31,7 @@ else
   echo "== AnkiDroid deja installe =="
 fi
 
-echo "== permissions de Kholle =="
+echo "== permissions de Sillon =="
 for perm in \
   android.permission.RECORD_AUDIO \
   android.permission.POST_NOTIFICATIONS \

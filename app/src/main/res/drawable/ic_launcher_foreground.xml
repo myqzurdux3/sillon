@@ -6,32 +6,26 @@
     android:viewportHeight="108">
 
     <!--
-      La carte devient bulle de parole : une fiche qu'on entend au lieu de la lire.
-      L'accent circonflexe au-dessus signe le mot « khôlle ».
+      Le sillon : celui que creuse l'aiguille, celui que creuse la repetition.
+      Trois arcs concentriques, ouverts a droite comme une onde qui sort.
+      Le plus profond porte la couleur d'accent.
     -->
 
-    <!-- Accent circonflexe -->
     <path
-        android:pathData="M46,30 L54,22 L62,30"
-        android:strokeColor="#F2A65A"
-        android:strokeWidth="4.5"
-        android:strokeLineCap="round"
-        android:strokeLineJoin="round" />
-
-    <!-- Corps de la carte / bulle -->
-    <path
-        android:pathData="M36,38 h36 a7,7 0 0 1 7,7 v20 a7,7 0 0 1 -7,7 h-22 l-11,10 v-10 h-3 a7,7 0 0 1 -7,-7 v-20 a7,7 0 0 1 7,-7 z"
-        android:fillColor="#F4F0E6" />
-
-    <!-- Deux lignes de texte, suggerees -->
-    <path
-        android:pathData="M42,48 h24"
-        android:strokeColor="#121C33"
-        android:strokeWidth="3.4"
+        android:pathData="M54,30 a24,24 0 1 0 17,41"
+        android:strokeColor="#F5F5F4"
+        android:strokeWidth="4"
         android:strokeLineCap="round" />
+
     <path
-        android:pathData="M42,57 h15"
-        android:strokeColor="#121C33"
-        android:strokeWidth="3.4"
+        android:pathData="M54,40 a14,14 0 1 0 10,24"
+        android:strokeColor="#F5F5F4"
+        android:strokeWidth="4"
+        android:strokeLineCap="round" />
+
+    <path
+        android:pathData="M54,50 a4,4 0 1 0 3,7"
+        android:strokeColor="#FF4D2E"
+        android:strokeWidth="4"
         android:strokeLineCap="round" />
 </vector>

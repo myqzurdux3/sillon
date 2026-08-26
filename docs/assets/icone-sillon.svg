@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="432" height="432" viewBox="0 0 108 108">
+  <title>Icône Sillon</title>
+  <defs>
+    <clipPath id="mask">
+      <rect x="18" y="18" width="72" height="72" rx="20" ry="20"/>
+    </clipPath>
+  </defs>
+  <g clip-path="url(#mask)">
+    <rect x="0" y="0" width="108" height="108" fill="#0B0B0C"/>
+    <!-- Le sillon : celui que creuse l'aiguille, celui que creuse la répétition. -->
+    <path d="M54,30 a24,24 0 1 0 17,41" fill="none" stroke="#F5F5F4" stroke-width="4" stroke-linecap="round"/>
+    <path d="M54,40 a14,14 0 1 0 10,24" fill="none" stroke="#F5F5F4" stroke-width="4" stroke-linecap="round"/>
+    <path d="M54,50 a4,4 0 1 0 3,7"    fill="none" stroke="#FF4D2E" stroke-width="4" stroke-linecap="round"/>
+  </g>
+</svg>

@@ -1,21 +1,21 @@
 package fr.appprepa.app.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
-import androidx.compose.foundation.background
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
+import androidx.compose.foundation.layout.width
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -31,145 +31,126 @@ import androidx.compose.ui.unit.sp
 import fr.appprepa.app.session.DebugListener
 import fr.appprepa.app.session.SessionHolder
 import fr.appprepa.app.session.SessionOutcome
-import fr.appprepa.app.settings.SettingsStore
-import fr.appprepa.core.model.WriteMode
+import fr.appprepa.core.engine.SessionState
 import kotlinx.coroutines.launch
 
+/**
+ * Presque rien a l'ecran. Le mot d'etat occupe le centre, un filet le souligne, le rang de
+ * la carte suit. Tout le reste est derriere l'engrenage : en conduisant, on ne regarde
+ * qu'une chose.
+ */
 @Composable
 fun HomeScreen(
-    settings: SettingsStore,
-    ankiMessage: String,
+    debugTranscripts: Boolean,
     onStart: () -> Unit,
     onStop: () -> Unit,
-    onOpenJournal: () -> Unit,
+    onOpenSettings: () -> Unit,
 ) {
     val holder = SessionHolder.shared
     val state by holder.state.collectAsState()
     val running by holder.isRunning.collectAsState()
     val outcome by holder.outcome.collectAsState()
+    val progress by holder.progress.collectAsState()
     val scope = rememberCoroutineScope()
 
-    var apiKey by remember { mutableStateOf(settings.apiKey) }
-    var writeThrough by remember { mutableStateOf(settings.writeMode == WriteMode.WRITE_THROUGH) }
-    var debugMode by remember { mutableStateOf(settings.debugTranscripts) }
     var typed by remember { mutableStateOf("") }
+    val listening = state is SessionState.Listening ||
+        state is SessionState.AwaitingCorrection
 
-    Column(
+    Box(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
-            // Sans cela, l'etat passe sous la barre de statut.
-            .safeDrawingPadding()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 24.dp, vertical = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(20.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
+            .safeDrawingPadding(),
     ) {
-        // Pendant la conduite, seule cette ligne compte : elle doit se lire d'un coup d'oeil.
-        Text(
-            text = StateLabels.of(state),
-            style = MaterialTheme.typography.headlineLarge,
-            color = if (running) {
-                MaterialTheme.colorScheme.primary
-            } else {
-                MaterialTheme.colorScheme.onBackground
-            },
-            textAlign = TextAlign.Center,
-            modifier = Modifier.padding(top = 12.dp),
-        )
-
-        when (val done = outcome) {
-            is SessionOutcome.Failed -> Text("Échec : ${done.reason}")
-            is SessionOutcome.Completed -> Text(
-                // En mode journal rien n'atteint Anki : le dire, sinon le compteur ment.
-                "${done.stats.answered} cartes, ${done.stats.correct} justes, " +
-                    if (writeThrough) {
-                        "${done.stats.committed} écrites dans Anki."
-                    } else {
-                        "${done.stats.committed} journalisées, aucune écrite dans Anki."
-                    },
-            )
-            null -> Unit
-        }
-
-        Button(
-            onClick = if (running) onStop else onStart,
+        Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .height(88.dp),
+                .fillMaxSize()
+                .padding(horizontal = 32.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.Start,
         ) {
-            Text(if (running) "Arrêter" else "Démarrer la session", fontSize = 22.sp)
-        }
-
-        if (debugMode && running) {
-            OutlinedTextField(
-                value = typed,
-                onValueChange = { typed = it },
-                label = { Text("Réponse au clavier") },
-                modifier = Modifier.fillMaxWidth(),
-            )
-            Button(
-                onClick = {
-                    val text = typed
-                    typed = ""
-                    scope.launch { DebugListener.shared.submit(text) }
+            Text(
+                text = StateLabels.of(state).uppercase(),
+                style = MaterialTheme.typography.displayLarge,
+                color = if (listening) {
+                    SillonPalette.accent
+                } else {
+                    MaterialTheme.colorScheme.onBackground
                 },
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text("Envoyer")
-            }
-        }
+            )
 
-        Card(modifier = Modifier.fillMaxWidth()) {
-            Column(
-                modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                Text(ankiMessage)
+            Spacer(Modifier.height(24.dp))
+            HorizontalDivider(
+                modifier = Modifier.width(120.dp),
+                thickness = 1.dp,
+                color = SillonPalette.rule,
+            )
+            Spacer(Modifier.height(16.dp))
 
+            Text(
+                text = secondLine(progress, outcome, running),
+                style = MaterialTheme.typography.bodySmall,
+                color = SillonPalette.faint,
+            )
+
+            if (debugTranscripts && running) {
+                Spacer(Modifier.height(32.dp))
                 OutlinedTextField(
-                    value = apiKey,
-                    onValueChange = {
-                        apiKey = it
-                        settings.apiKey = it
-                    },
-                    label = { Text("Clé d'API Anthropic") },
-                    singleLine = true,
+                    value = typed,
+                    onValueChange = { typed = it },
+                    label = { Text("Réponse au clavier") },
                     modifier = Modifier.fillMaxWidth(),
                 )
-
-                Column {
-                    Text("Écrire les notes dans Anki")
-                    Text(
-                        "Désactivé, l'application se contente de journaliser ce qu'elle " +
-                            "aurait noté. Laisse-le désactivé le temps de vérifier le journal.",
-                        style = MaterialTheme.typography.bodySmall,
-                    )
-                    Switch(
-                        checked = writeThrough,
-                        onCheckedChange = {
-                            writeThrough = it
-                            settings.writeMode =
-                                if (it) WriteMode.WRITE_THROUGH else WriteMode.JOURNAL_ONLY
-                        },
-                    )
-                }
-
-                Column {
-                    Text("Répondre au clavier (mise au point)")
-                    Switch(
-                        checked = debugMode,
-                        onCheckedChange = {
-                            debugMode = it
-                            settings.debugTranscripts = it
-                        },
-                    )
-                }
-
-                Button(onClick = onOpenJournal, modifier = Modifier.fillMaxWidth()) {
-                    Text("Voir le journal")
+                TextButton(
+                    onClick = {
+                        val text = typed
+                        typed = ""
+                        scope.launch { DebugListener.shared.submit(text) }
+                    },
+                ) {
+                    Text("Envoyer")
                 }
             }
         }
+
+        TextButton(
+            onClick = if (running) onStop else onStart,
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .padding(start = 20.dp, bottom = 24.dp),
+        ) {
+            Text(
+                text = if (running) "Arrêter" else "Démarrer",
+                fontSize = 18.sp,
+                color = if (running) SillonPalette.accent else MaterialTheme.colorScheme.onBackground,
+            )
+        }
+
+        TextButton(
+            onClick = onOpenSettings,
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(end = 20.dp, bottom = 24.dp),
+        ) {
+            Text("Réglages", fontSize = 15.sp, color = SillonPalette.faint)
+        }
+    }
+}
+
+/** La ligne sous le filet : le rang de la carte, ou le bilan une fois la session finie. */
+private fun secondLine(
+    progress: Pair<Int, Int>,
+    outcome: SessionOutcome?,
+    running: Boolean,
+): String {
+    if (running && progress.second > 0) {
+        return "carte ${progress.first} sur ${progress.second}"
+    }
+    return when (val done = outcome) {
+        is SessionOutcome.Failed -> done.reason
+        is SessionOutcome.Completed ->
+            "${done.stats.answered} cartes, ${done.stats.correct} justes"
+        null -> "prêt à démarrer"
     }
 }

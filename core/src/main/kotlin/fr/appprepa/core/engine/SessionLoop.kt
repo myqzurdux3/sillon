@@ -36,6 +36,10 @@ class SessionLoop(
     private val _state = MutableStateFlow<SessionState>(SessionState.Idle)
     val state: StateFlow<SessionState> = _state.asStateFlow()
 
+    /** Rang de la carte en cours et total : « carte 7 sur 32 ». */
+    private val _progress = MutableStateFlow(0 to 0)
+    val progress: StateFlow<Pair<Int, Int>> = _progress.asStateFlow()
+
     private var session = Session(writeMode = writeMode)
     private val queue = ArrayDeque<Event>()
     private val prefetchJobs = mutableListOf<Job>()
@@ -72,6 +76,7 @@ class SessionLoop(
             val reduction = ReviewSessionEngine.reduce(session, event, clock.nowMs())
             session = reduction.session
             _state.value = session.state
+            _progress.value = session.position to session.total
 
             for (effect in reduction.effects) {
                 perform(effect, this)

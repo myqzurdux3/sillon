@@ -1,10 +1,10 @@
-# Khôlle
+# Sillon
 
-**Ta khôlle du matin.** Une application Android qui t'interroge à l'oral sur tes cartes
+**Le sillon se creuse à force d'y repasser.** Une application Android qui t'interroge à l'oral sur tes cartes
 Anki dues pendant que tu conduis. Tu réponds à voix haute, elle juge, annonce la note
 qu'elle propose, et tu peux la corriger d'un mot avant qu'elle ne parte dans Anki.
 
-En prépa, une khôlle est l'interrogation orale. L'application ne fait rien d'autre.
+Un sillon se creuse à force d'y repasser. C'est aussi celui que suit l'aiguille.
 
 ## Le principe
 

@@ -1,13 +1,13 @@
-# Installer Khôlle sur ton téléphone
+# Installer Sillon sur ton téléphone
 
-Khôlle t'interroge à l'oral sur tes cartes Anki dues, pendant que tu conduis. Tu réponds
+Sillon t'interroge à l'oral sur tes cartes Anki dues, pendant que tu conduis. Tu réponds
 à voix haute, l'application juge, annonce la note qu'elle propose, et tu peux la corriger
 d'un mot avant qu'elle ne soit écrite dans Anki.
 
 ## Ce qu'il te faut
 
 - Un téléphone Android 12 ou plus récent.
-- **AnkiDroid installé sur le même téléphone**, avec ta collection dedans. Khôlle lit et
+- **AnkiDroid installé sur le même téléphone**, avec ta collection dedans. Sillon lit et
   écrit directement dans cette collection : ni PC, ni serveur, ni AnkiWeb.
 - Une clé d'API Anthropic, à créer sur `console.anthropic.com`.
 
@@ -37,7 +37,7 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 
 ## 3. Accorder les trois permissions
 
-Au premier lancement, Khôlle les demande toutes les trois d'un coup :
+Au premier lancement, Sillon les demande toutes les trois d'un coup :
 
 | Permission | Pourquoi |
 |---|---|
@@ -46,7 +46,7 @@ Au premier lancement, Khôlle les demande toutes les trois d'un coup :
 | Accès à la collection AnkiDroid | lire les cartes dues et écrire les notes |
 
 Si la troisième n'apparaît pas, c'est qu'AnkiDroid n'est pas installé. L'écran d'accueil
-de Khôlle te le dit explicitement.
+de Sillon te le dit explicitement.
 
 ## 4. Coller ta clé d'API
 
@@ -55,7 +55,7 @@ Dans l'écran d'accueil. Elle est stockée chiffrée sur le téléphone
 
 ## 5. Les premiers trajets : laisse le mode journal actif
 
-**C'est l'étape qui protège ta collection.** Par défaut, Khôlle ne modifie rien dans Anki :
+**C'est l'étape qui protège ta collection.** Par défaut, Sillon ne modifie rien dans Anki :
 elle se contente d'enregistrer la note qu'elle *aurait* mise. Une mauvaise note décale le
 calendrier d'une carte pour des semaines, et l'API AnkiDroid n'offre aucune annulation
 après coup.
@@ -92,7 +92,7 @@ reste due.
 
 ### Si le réseau tombe
 
-La session continue en mode dégradé : Khôlle lit le recto tel quel, écoute ta réponse, lit
+La session continue en mode dégradé : Sillon lit le recto tel quel, écoute ta réponse, lit
 le verso, et te demande de dicter toi-même ta note. Elle repasse en mode normal dès que le
 réseau revient.
 
@@ -100,6 +100,25 @@ réseau revient.
 
 Elles sont écartées et journalisées, sans être notées. Inutilisables en conduisant, elles
 restent dues pour une révision à l'écran.
+
+## Le seul réglage qui touche à la vitesse
+
+Le trajet a deux temps d'attente. Celui de la **question** est masqué : pendant que tu
+réponds à une carte, la suivante est déjà en cours de reformulation. Celui de la
+**correction** ne l'est pas — c'est le silence entre ta réponse et le verdict.
+
+Mesuré sur tes propres cartes, sur l'appareil :
+
+| Modèle de correction | Latence médiane |
+|---|---|
+| Le modèle principal (par défaut) | 4,3 s |
+| « Correction rapide » | 2,3 s |
+
+Le mode rapide juge moins finement. À toi de voir ce qui te gêne le plus : attendre, ou
+être mal noté. Le mode journal permet de trancher sur pièces.
+
+Le « mode rapide » de l'API, qui aurait accéléré le modèle principal sans changer sa
+qualité, n'est pas disponible sur ce compte (quota à zéro) — vérifié, pas supposé.
 
 ## Mise au point sans voiture
 

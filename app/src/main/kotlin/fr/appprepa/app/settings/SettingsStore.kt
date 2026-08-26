@@ -36,6 +36,15 @@ class SettingsStore(context: Context) {
         get() = prefs.getInt(KEY_LIMIT, 40)
         set(value) = prefs.edit().putInt(KEY_LIMIT, value.coerceIn(1, 200)).apply()
 
+    /**
+     * Juger avec un modele plus rapide et moins capable. Mesure sur cartes reelles :
+     * mediane 4,3 s avec le modele principal, 2,3 s avec le rapide. C'est le seul temps
+     * mort reellement percu, celui de la reformulation etant masque par le prechargement.
+     */
+    var fastJudge: Boolean
+        get() = prefs.getBoolean(KEY_FAST_JUDGE, false)
+        set(value) = prefs.edit().putBoolean(KEY_FAST_JUDGE, value).apply()
+
     /** Repondre au clavier au lieu du micro, pour la mise au point. */
     var debugTranscripts: Boolean
         get() = prefs.getBoolean(KEY_DEBUG, false)
@@ -47,5 +56,6 @@ class SettingsStore(context: Context) {
         const val KEY_DECK = "deck_id"
         const val KEY_LIMIT = "card_limit"
         const val KEY_DEBUG = "debug_transcripts"
+        const val KEY_FAST_JUDGE = "fast_judge"
     }
 }

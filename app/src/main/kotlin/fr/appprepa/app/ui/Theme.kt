@@ -1,6 +1,9 @@
 package fr.appprepa.app.ui
 
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.Surface
+import androidx.compose.ui.Modifier
 import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
@@ -10,50 +13,66 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 
 /**
- * Palette de l'icone : nuit d'hiver et ambre de phares. Sombre par principe — l'ecran est
- * regarde d'un coup d'oeil, dans une voiture, souvent avant le lever du jour.
+ * Noir, blanc, et une seule couleur. L'accent ne sert qu'a une chose : signaler que
+ * l'application ecoute. Tout le reste est typographie.
  */
-private val Night = Color(0xFF121C33)
-private val NightRaised = Color(0xFF1B2A4A)
-private val Paper = Color(0xFFF4F0E6)
-private val Amber = Color(0xFFF2A65A)
-private val Muted = Color(0xFF9AA8C4)
+private val Ink = Color(0xFF0B0B0C)
+private val Paper = Color(0xFFF5F5F4)
+private val Faint = Color(0xFF6E6E73)
+private val Rule = Color(0xFF26262A)
+private val Accent = Color(0xFFFF4D2E)
 
-private val KholleColors = darkColorScheme(
-    primary = Amber,
-    onPrimary = Color(0xFF231603),
-    secondary = Amber,
-    onSecondary = Color(0xFF231603),
-    background = Night,
+private val SillonColors = darkColorScheme(
+    primary = Paper,
+    onPrimary = Ink,
+    secondary = Accent,
+    onSecondary = Ink,
+    background = Ink,
     onBackground = Paper,
-    surface = NightRaised,
+    surface = Ink,
     onSurface = Paper,
-    surfaceVariant = NightRaised,
-    onSurfaceVariant = Muted,
-    // Material3 tire les Cards de surfaceContainer, pas de surface : sans ces lignes
-    // elles virent au gris neutre et cassent la palette.
-    surfaceContainerLowest = Color(0xFF0D1526),
-    surfaceContainerLow = Color(0xFF16233D),
-    surfaceContainer = NightRaised,
-    surfaceContainerHigh = Color(0xFF213257),
-    surfaceContainerHighest = Color(0xFF283C68),
-    outline = Muted,
-    error = Color(0xFFE57373),
+    surfaceContainerLowest = Ink,
+    surfaceContainerLow = Ink,
+    surfaceContainer = Ink,
+    surfaceContainerHigh = Rule,
+    surfaceContainerHighest = Rule,
+    surfaceVariant = Ink,
+    onSurfaceVariant = Faint,
+    outline = Rule,
+    outlineVariant = Rule,
+    error = Accent,
+    onError = Ink,
 )
 
-private val KholleTypography = Typography(
-    headlineLarge = TextStyle(
-        fontSize = 40.sp,
-        lineHeight = 46.sp,
-        fontWeight = FontWeight.Medium,
+/** Un seul niveau compte : le mot d'etat. Le reste s'efface. */
+private val SillonType = Typography(
+    displayLarge = TextStyle(
+        fontSize = 56.sp,
+        lineHeight = 60.sp,
+        fontWeight = FontWeight.Light,
+        letterSpacing = (-1).sp,
     ),
+    bodyLarge = TextStyle(fontSize = 16.sp, lineHeight = 24.sp),
+    labelLarge = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Normal, letterSpacing = 0.5.sp),
+    bodySmall = TextStyle(fontSize = 13.sp, lineHeight = 18.sp),
 )
+
+object SillonPalette {
+    val accent = Accent
+    val faint = Faint
+    val rule = Rule
+}
 
 @Composable
-fun KholleTheme(content: @Composable () -> Unit) {
-    MaterialTheme(
-        colorScheme = KholleColors,
-        typography = KholleTypography,
-        content = content,
-    )
+fun SillonTheme(content: @Composable () -> Unit) {
+    MaterialTheme(colorScheme = SillonColors, typography = SillonType) {
+        // Hors d'un Surface, LocalContentColor reste au noir : peindre le fond a la main
+        // ne suffit pas, les textes sortent illisibles sur fond sombre.
+        Surface(
+            modifier = Modifier.fillMaxSize(),
+            color = SillonColors.background,
+            contentColor = SillonColors.onBackground,
+            content = content,
+        )
+    }
 }
