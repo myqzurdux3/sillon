@@ -3,6 +3,8 @@ package fr.appprepa.app.ui
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.background
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
@@ -20,7 +22,13 @@ import fr.appprepa.core.model.JournalRecord
  */
 @Composable
 fun JournalScreen(entries: List<JournalRecord>, onBack: () -> Unit) {
-    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+            .safeDrawingPadding()
+            .padding(16.dp),
+    ) {
         Button(onClick = onBack) { Text("Retour") }
 
         if (entries.isEmpty()) {

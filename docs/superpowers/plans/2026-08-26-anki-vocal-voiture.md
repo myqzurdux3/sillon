@@ -4325,3 +4325,52 @@ réel et la clé d'API de l'utilisateur :
    kit mains-libres, vocabulaire technique. L'émulateur n'a pas d'entrée audio réaliste.
 
 Aucune des deux ne bloque le développement : la boucle complète est testable sans elles.
+
+---
+
+## Ce que l'exécution a corrigé
+
+Trois écarts entre le plan et la réalité, découverts en faisant tourner le code sur
+l'émulateur. Ils sont consignés ici parce qu'ils sont tous du même genre : des choses
+qu'aucune relecture n'aurait attrapées.
+
+### 1. La projection par défaut du ContentProvider n'expose pas le texte nettoyé
+
+Le plan supposait qu'une requête `query(uri, null, ...)` sur une carte renverrait
+`question_simple` et `answer_pure`. Elle ne renvoie que
+`[_id, note_id, ord, card_name, deck_id, question, answer]` — les colonnes débarrassées du
+HTML doivent être **demandées explicitement** dans la projection.
+
+`AnkiDroidGateway.cardText` passe donc une projection nommée, avec repli sur
+`answer_simple` puis `answer`, et un nettoyage HTML maison en dernier recours : une balise
+lue à voix haute rend la question incompréhensible.
+
+### 2. La réponse parlée n'atteignait pas le journal
+
+Le champ `transcript` de `JournalRecord` était systématiquement vide. Le moteur portait la
+réponse jusqu'à l'état `Judging`, puis la perdait : ni `SpeakingVerdict` ni
+`AwaitingCorrection` ne la transportaient, et c'est `AwaitingCorrection` qui construit
+l'enregistrement.
+
+Or le journal existe pour comparer **ce que tu as dit** à **ce que le modèle en a fait** ;
+sans la première colonne il ne sert à rien. `SessionState.SpeakingVerdict` et
+`AwaitingCorrection` portent désormais le transcript. Couvert par `TranscriptTraceTest`.
+
+### 3. Le bouton « Arrêter » jetait la note de la dernière carte
+
+Le décalage d'un tour à la validation, qui rend « annule » possible, a un corollaire que le
+plan n'avait pas tiré : **à tout instant une note est en attente d'écriture**. Or
+`SessionService.stopSession()` annulait la coroutine, ce qui la faisait disparaître
+silencieusement.
+
+`SessionLoop.requestStop()` demande maintenant une fin propre : la boucle injecte
+`Event.StopRequested`, le moteur vide ce qu'il a en main, puis rend. L'écoute en cours est
+annulée pour ne pas attendre les quinze secondes de temporisation. Couvert par
+`GracefulStopTest`.
+
+### Et un détail d'honnêteté
+
+Le bilan de fin de session annonçait « N notées » y compris en mode journal, où rien
+n'atteint Anki. Le compteur `committed` compte les cartes finalisées, pas les écritures
+réelles. Le libellé distingue désormais les deux cas — dans un mode dont toute la raison
+d'être est la prudence, un compteur qui ment est pire qu'inutile.
