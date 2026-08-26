@@ -13,6 +13,7 @@ object StateLabels {
         is SessionState.Judging -> "Correction"
         is SessionState.SpeakingVerdict -> "Réponse"
         is SessionState.AwaitingCorrection -> "Tu peux corriger"
+        is SessionState.Revisiting -> "Carte précédente"
         is SessionState.Finished ->
             "Terminé — ${state.stats.answered} cartes, ${state.stats.correct} justes"
         is SessionState.Failed -> "Erreur"

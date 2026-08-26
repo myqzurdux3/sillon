@@ -43,7 +43,10 @@ class CommandsAndDegradedTest {
             Event.Heard("passe"),
             2_000L,
         )
-        assertNull("une carte passee ne doit rien mettre en attente", result.session.pending)
+        assertTrue(
+            "une carte passee ne doit rien mettre en attente",
+            result.session.pending.isEmpty(),
+        )
         assertEquals(1, result.session.stats.skipped)
         assertTrue(result.effects.any { it is Effect.Record })
     }
@@ -87,14 +90,18 @@ class CommandsAndDegradedTest {
     @Test
     fun `annule supprime la note en attente de la carte precedente`() {
         val previous = PendingAnswerFixtures.pending(card(1), Ease.EASY)
-        val session = awaiting(2, queue = listOf(card(3))).copy(pending = previous)
+        val session = awaiting(2, queue = listOf(card(3))).copy(pending = listOf(previous))
         val result = ReviewSessionEngine.reduce(session, Event.Heard("annule"), 5_000L)
 
         assertTrue(
             "la carte annulee ne doit jamais etre ecrite",
             result.effects.filterIsInstance<Effect.Commit>().none { it.pending.card.noteId == 1L },
         )
-        assertEquals("la carte courante prend la place", 2L, result.session.pending?.card?.noteId)
+        assertEquals(
+            "la carte courante prend la place",
+            2L,
+            result.session.pending.single().card.noteId,
+        )
         assertTrue(
             result.effects.filterIsInstance<Effect.Record>()
                 .any { it.entry.noteId == 1L && it.entry.committedEase == null },

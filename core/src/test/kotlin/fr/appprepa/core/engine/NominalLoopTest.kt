@@ -155,14 +155,22 @@ class NominalLoopTest {
     }
 
     @Test
-    fun `la fin du verdict ouvre une fenetre de correction courte`() {
+    fun `la fin du verdict ouvre la fenetre de correction`() {
         val inFlight = CardInFlight(card(1), "question orale 1", listOf("point 1"), 5_000L)
         val speaking = Session(
             state = SessionState.SpeakingVerdict(inFlight, Assessment.Judged(judgement())),
         )
         val result = ReviewSessionEngine.reduce(speaking, Event.SpeechFinished, 12_000L)
         assertTrue(result.session.state is SessionState.AwaitingCorrection)
-        assertEquals(listOf(Effect.Listen(ListenKind.CORRECTION, 3_000L)), result.effects)
+        assertEquals(
+            listOf(
+                Effect.Listen(
+                    ListenKind.CORRECTION,
+                    ReviewSessionEngine.CORRECTION_TIMEOUT_MS,
+                ),
+            ),
+            result.effects,
+        )
     }
 
     @Test
@@ -188,7 +196,7 @@ class NominalLoopTest {
         val previous = PendingAnswerFixtures.pending(card(1), Ease.GOOD)
         val awaiting = Session(
             state = SessionState.AwaitingCorrection(inFlight, Assessment.Judged(judgement())),
-            pending = previous,
+            pending = listOf(previous),
             queue = listOf(card(3)),
             prefetch = ReformulatedQuestion("question orale 3", emptyList()),
             prefetchFor = 3L,
@@ -198,7 +206,7 @@ class NominalLoopTest {
         val commits = result.effects.filterIsInstance<Effect.Commit>()
         assertEquals("seule la carte 1 doit etre ecrite", 1, commits.size)
         assertEquals(1L, commits.single().pending.card.noteId)
-        assertEquals("la carte 2 reste en attente", 2L, result.session.pending?.card?.noteId)
+        assertEquals("la carte 2 reste en attente", 2L, result.session.pending.single().card.noteId)
     }
 
     @Test

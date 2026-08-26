@@ -80,15 +80,33 @@ n'affiche qu'un état en gros caractères et ne te demande jamais rien.
 | Réentendre la question | « répète », « pardon » |
 | Passer sans noter | « passe », « suivante » |
 | Te faire expliquer | « explique », « je sèche », « je ne sais pas » |
+| Revenir sur la carte précédente | « reviens », « la précédente », « carte d'avant » |
+| Te faire réexpliquer la précédente | « explique la précédente », « c'était quoi déjà » |
 | Annuler la note de la carte précédente | « annule » |
 | Terminer | « stop », « pause », « terminé » |
 
-Après chaque verdict, tu as environ trois secondes pour corriger. Si tu ne dis rien, la
-note proposée est retenue et l'application enchaîne.
+Après chaque verdict, tu as **sept secondes** pour corriger — douze en mode dégradé, où tu
+dois dicter la note toi-même. Si tu ne dis rien, la note proposée est retenue et
+l'application enchaîne.
 
-« annule » vise la carte **précédente** : sa note n'est écrite qu'au moment où tu réponds
-à la suivante, ce qui te laisse une vraie fenêtre pour la rattraper. La carte annulée
-reste due.
+### Revenir en arrière
+
+La note d'une carte n'est écrite qu'au moment où tu réponds à la suivante. Tant qu'elle
+n'est pas partie, tu peux la reprendre — **à n'importe quel moment où l'application
+t'écoute**, y compris au milieu de la question suivante.
+
+Dis « reviens ». L'application ouvre une parenthèse : elle rappelle la carte d'avant et
+attend, fenêtre longue. Tu peux alors dicter une autre note, ou dire « explique » pour te
+la faire réexpliquer. Ensuite elle réénonce la question en cours et se remet à t'écouter —
+tu ne perds pas la carte où tu en étais.
+
+« explique la précédente » ouvre la même parenthèse mais va droit à l'explication.
+
+Si tu ne dis rien dans la parenthèse, elle reprend sans rien changer. « annule » jette la
+note de la carte précédente : elle n'est jamais écrite, la carte reste due.
+
+Une seule carte en arrière pour l'instant. Le moteur garde ses notes dans une file dont le
+plafond est un simple réglage : passer à deux ou trois ne demandera qu'une constante.
 
 ### Si le réseau tombe
 

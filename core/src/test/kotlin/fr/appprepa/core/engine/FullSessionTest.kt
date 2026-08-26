@@ -111,6 +111,27 @@ class FullSessionTest {
     }
 
     @Test
+    fun `revenir sur la carte precedente change sa note sans perdre la carte en cours`() = runTest {
+        val cards = listOf(card(1), card(2), card(3))
+        val gateway = FakeAnkiGateway(cards)
+        // carte 1 : repondue puis validee. carte 2 : on revient sur la 1 et on la renote.
+        val script = mutableListOf<String?>(
+            "reponse 1", null,
+            "reviens", "a revoir",
+            "reponse 2", null,
+            "reponse 3", null,
+        )
+        loop(cards, script, gateway = gateway).run(null, 30)
+
+        assertEquals(listOf(1L, 2L, 3L), gateway.answered.map { it.first })
+        assertEquals(
+            "la carte 1 doit porter la note dictee apres coup",
+            Ease.AGAIN,
+            gateway.answered.first { it.first == 1L }.third,
+        )
+    }
+
+    @Test
     fun `une collection sans carte due se termine proprement`() = runTest {
         val stats = loop(emptyList(), mutableListOf()).run(null, 30)
         assertEquals(0, stats.answered)

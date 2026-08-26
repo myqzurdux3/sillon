@@ -37,6 +37,26 @@ class StateLabelsTest {
                 ),
             ),
             SessionState.AwaitingCorrection(inFlight, Assessment.SelfGrade("verso")),
+            SessionState.Revisiting(
+                inFlight,
+                fr.appprepa.core.engine.PendingAnswer(
+                    card = inFlight.card,
+                    ease = Ease.GOOD,
+                    timeTakenMs = 0L,
+                    record = fr.appprepa.core.model.JournalRecord(
+                        atMs = 0L,
+                        noteId = 1,
+                        cardOrd = 0,
+                        deckName = "Prepa",
+                        question = "q",
+                        transcript = "",
+                        proposedEase = Ease.GOOD,
+                        committedEase = null,
+                        verdict = Verdict.CORRECT,
+                        mode = fr.appprepa.core.model.WriteMode.JOURNAL_ONLY,
+                    ),
+                ),
+            ),
             SessionState.Finished(SessionStats(answered = 2, correct = 1)),
             SessionState.Failed("panne"),
         )

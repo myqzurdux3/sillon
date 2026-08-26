@@ -31,6 +31,28 @@ class VoiceCommandParserTest {
     }
 
     @Test
+    fun `reconnait le retour sur la carte precedente`() {
+        assertEquals(VoiceCommand.Revisit, VoiceCommandParser.parse("reviens"))
+        assertEquals(VoiceCommand.Revisit, VoiceCommandParser.parse("la precedente"))
+        assertEquals(VoiceCommand.Revisit, VoiceCommandParser.parse("carte d'avant"))
+        assertEquals(VoiceCommand.Revisit, VoiceCommandParser.parse("retour"))
+    }
+
+    @Test
+    fun `reconnait la demande d'explication sur la precedente`() {
+        assertEquals(VoiceCommand.RevisitExplain, VoiceCommandParser.parse("explique la precedente"))
+        assertEquals(VoiceCommand.RevisitExplain, VoiceCommandParser.parse("c'etait quoi deja"))
+        assertEquals(VoiceCommand.RevisitExplain, VoiceCommandParser.parse("redis moi la precedente"))
+    }
+
+    @Test
+    fun `annule reste distinct du retour`() {
+        // « annule » jette la note ; « reviens » ouvre une parenthese pour la refaire.
+        assertEquals(VoiceCommand.Undo, VoiceCommandParser.parse("annule"))
+        assertEquals(VoiceCommand.Undo, VoiceCommandParser.parse("annuler"))
+    }
+
+    @Test
     fun `tolere la ponctuation et les espaces`() {
         assertEquals(VoiceCommand.Stop, VoiceCommandParser.parse("  Stop.  "))
         assertEquals(VoiceCommand.Correct(Ease.EASY), VoiceCommandParser.parse("facile !"))

@@ -58,6 +58,16 @@ sealed interface SessionState {
         val assessment: Assessment,
         val transcript: String = "",
     ) : SessionState
+    /**
+     * Parenthese ouverte sur une carte deja repondue : on la renote ou on se la fait
+     * expliquer, puis [inFlight] reprend la main.
+     */
+    data class Revisiting(
+        val inFlight: CardInFlight,
+        val target: PendingAnswer,
+        val explaining: Boolean = false,
+    ) : SessionState
+
     data class Finished(val stats: SessionStats) : SessionState
     data class Failed(val reason: String) : SessionState
 }
@@ -104,7 +114,12 @@ data class Session(
     val queue: List<ReviewCard> = emptyList(),
     val prefetch: ReformulatedQuestion? = null,
     val prefetchFor: Long? = null,
-    val pending: PendingAnswer? = null,
+    /**
+     * Notes decidees mais pas encore ecrites, de la plus ancienne a la plus recente.
+     * Le plafond vaut 1 aujourd'hui ; le porter a 2 ou 3 ne demande que de changer
+     * [ReviewSessionEngine.MAX_PENDING].
+     */
+    val pending: List<PendingAnswer> = emptyList(),
     val degraded: Boolean = false,
     val stats: SessionStats = SessionStats(),
     val writeMode: WriteMode = WriteMode.JOURNAL_ONLY,

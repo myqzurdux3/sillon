@@ -9,6 +9,12 @@ sealed interface VoiceCommand {
     data object Skip : VoiceCommand
     data object Explain : VoiceCommand
     data object Undo : VoiceCommand
+
+    /** Ouvre une parenthese sur la carte precedente pour la renoter. */
+    data object Revisit : VoiceCommand
+
+    /** Meme parenthese, mais directement sur l'explication. */
+    data object RevisitExplain : VoiceCommand
     data object Stop : VoiceCommand
     data object None : VoiceCommand
 }
@@ -19,6 +25,9 @@ object VoiceCommandParser {
     private val FILLER = setOf(
         "c", "cetait", "cest", "etait", "est", "ca", "s", "il", "sil", "te", "plait",
         "la", "le", "les", "de", "du", "on", "met", "mets", "je", "dirais", "plutot", "alors",
+        "moi", "un", "peu", "stp",
+        // Elisions : « carte d'avant » se normalise en « carte d avant ».
+        "d", "l", "n", "y",
     )
 
     private val EXACT: List<Pair<Set<String>, VoiceCommand>> = listOf(
@@ -33,7 +42,16 @@ object VoiceCommandParser {
             "explique", "expliquer", "je seche", "seche", "je ne sais pas",
             "ne sais pas", "sais pas", "aucune idee",
         ) to VoiceCommand.Explain,
-        setOf("annule", "annuler", "reviens", "retour") to VoiceCommand.Undo,
+        // « annule » jette la note de la carte precedente ; « reviens » la reprend.
+        setOf("annule", "annuler", "oublie") to VoiceCommand.Undo,
+        setOf(
+            "reviens", "revenir", "retour", "precedente", "precedent",
+            "carte avant", "carte precedente", "avant",
+        ) to VoiceCommand.Revisit,
+        setOf(
+            "explique precedente", "explique carte precedente", "quoi deja",
+            "redis precedente", "rappelle precedente", "explique avant",
+        ) to VoiceCommand.RevisitExplain,
         setOf("stop", "pause", "termine", "terminer", "fini", "arrete") to VoiceCommand.Stop,
     )
 

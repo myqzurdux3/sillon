@@ -14,10 +14,18 @@ import fr.appprepa.core.voice.VoiceCommandParser
 object ReviewSessionEngine {
 
     const val ANSWER_TIMEOUT_MS = 15_000L
-    const val CORRECTION_TIMEOUT_MS = 3_000L
+
+    /** Au volant, trois secondes ne suffisent pas pour reagir. */
+    const val CORRECTION_TIMEOUT_MS = 7_000L
+
+    /** Dans la parenthese, il faut le temps de se rappeler la carte d'avant. */
+    const val REVISIT_TIMEOUT_MS = 10_000L
+
+    /** Nombre de notes gardees en attente. A 1, on peut revenir d'une carte. */
+    const val MAX_PENDING = 1
 
     /** En mode degrade, l'utilisateur doit dicter sa note : il lui faut plus de temps. */
-    const val SELF_GRADE_TIMEOUT_MS = 8_000L
+    const val SELF_GRADE_TIMEOUT_MS = 12_000L
 
     fun reduce(session: Session, event: Event, nowMs: Long): Reduction = when (event) {
         is Event.Start -> Reduction(
@@ -109,6 +117,14 @@ object ReviewSessionEngine {
                 )
             }
 
+            is SessionState.Revisiting ->
+                if (state.explaining) {
+                    // L'explication vient d'etre enoncee : on referme et on reprend.
+                    resumeAfterRevisit(session, state, nowMs)
+                } else {
+                    Reduction(session, listOf(Effect.Listen(ListenKind.CORRECTION, REVISIT_TIMEOUT_MS)))
+                }
+
             is SessionState.SpeakingVerdict -> Reduction(
                 session.copy(
                     state = SessionState.AwaitingCorrection(
@@ -137,8 +153,100 @@ object ReviewSessionEngine {
             is SessionState.Listening -> onAnswerHeard(session, state, event.transcript, nowMs)
             is SessionState.AwaitingCorrection ->
                 onCorrectionHeard(session, state, event.transcript, nowMs)
+            is SessionState.Revisiting -> onRevisitHeard(session, state, event.transcript, nowMs)
             else -> Reduction(session, emptyList())
         }
+
+    // --- parenthese sur la carte precedente --------------------------------
+
+    /**
+     * Ouvre la parenthese : rappelle la carte visee, puis attend une note ou une demande
+     * d'explication. La reponse en cours est abandonnee — si l'utilisateur revient en
+     * arriere, c'est que la carte d'avant l'occupe davantage.
+     */
+    private fun openRevisit(
+        session: Session,
+        inFlight: CardInFlight,
+        explaining: Boolean,
+    ): Reduction {
+        val target = session.pending.lastOrNull()
+            ?: return Reduction(
+                session,
+                listOf(Effect.Speak("Pas de carte précédente à reprendre.")),
+            )
+
+        val state = SessionState.Revisiting(inFlight, target, explaining)
+        return if (explaining) {
+            Reduction(session.copy(state = state), listOf(Effect.Explain(target.card)))
+        } else {
+            Reduction(
+                session.copy(state = state),
+                listOf(
+                    Effect.Speak(
+                        "Carte précédente : ${MathSpeech.verbalize(target.card.question)}. " +
+                            "Tu mets quoi, ou tu veux que j'explique ?",
+                    ),
+                ),
+            )
+        }
+    }
+
+    private fun onRevisitHeard(
+        session: Session,
+        state: SessionState.Revisiting,
+        transcript: String,
+        nowMs: Long,
+    ): Reduction = when (val command = VoiceCommandParser.parse(transcript)) {
+        is VoiceCommand.Correct -> resumeAfterRevisit(
+            regrade(session, state.target, command.ease),
+            state,
+            nowMs,
+        )
+
+        VoiceCommand.Explain, VoiceCommand.RevisitExplain -> Reduction(
+            session.copy(state = state.copy(explaining = true)),
+            listOf(Effect.Explain(state.target.card)),
+        )
+
+        VoiceCommand.Undo -> {
+            val cleared = session.copy(
+                pending = session.pending.filterNot { it.card.noteId == state.target.card.noteId },
+            )
+            val trace = Effect.Record(
+                state.target.record.copy(committedEase = null, note = "annulee a la voix"),
+            )
+            val resumed = resumeAfterRevisit(cleared, state, nowMs)
+            Reduction(resumed.session, listOf(trace) + resumed.effects)
+        }
+
+        VoiceCommand.Stop -> finish(session, nowMs)
+
+        else -> resumeAfterRevisit(session, state, nowMs)
+    }
+
+    /** Remplace la note d'une carte encore en attente d'ecriture. */
+    private fun regrade(session: Session, target: PendingAnswer, ease: Ease): Session {
+        val bounded = ease.clampTo(target.card.buttonCount)
+        return session.copy(
+            pending = session.pending.map {
+                if (it.card.noteId == target.card.noteId && it.card.cardOrd == target.card.cardOrd) {
+                    it.copy(ease = bounded, record = it.record.copy(committedEase = bounded))
+                } else {
+                    it
+                }
+            },
+        )
+    }
+
+    /** Referme la parenthese : la question en cours est reenoncee. */
+    private fun resumeAfterRevisit(
+        session: Session,
+        state: SessionState.Revisiting,
+        nowMs: Long,
+    ): Reduction = Reduction(
+        session.copy(state = SessionState.Asking(state.inFlight), retriedAnswer = false),
+        listOf(Effect.Speak(state.inFlight.question)),
+    )
 
     private fun onAnswerHeard(
         session: Session,
@@ -168,6 +276,9 @@ object ReviewSessionEngine {
             listOf(Effect.Explain(state.inFlight.card)),
         )
 
+        VoiceCommand.Revisit -> openRevisit(session, state.inFlight, explaining = false)
+        VoiceCommand.RevisitExplain -> openRevisit(session, state.inFlight, explaining = true)
+
         // Une correction de note n'a pas de sens pendant la reponse : c'est du texte.
         else -> if (session.degraded) {
             speakAnswerForSelfGrade(session, state.inFlight, transcript)
@@ -194,6 +305,9 @@ object ReviewSessionEngine {
     ): Reduction = when (val command = VoiceCommandParser.parse(transcript)) {
         is VoiceCommand.Correct -> settle(session, state, command.ease, nowMs)
 
+        VoiceCommand.Revisit -> openRevisit(session, state.inFlight, explaining = false)
+        VoiceCommand.RevisitExplain -> openRevisit(session, state.inFlight, explaining = true)
+
         VoiceCommand.Stop -> {
             val settled = settle(session, state, null, nowMs)
             if (settled.session.state is SessionState.Finished) {
@@ -206,8 +320,8 @@ object ReviewSessionEngine {
 
         // « annule » vise la carte precedente : elle n'est jamais ecrite, elle reste due.
         VoiceCommand.Undo -> {
-            val dropped = session.pending
-            val cleared = session.copy(pending = null)
+            val dropped = session.pending.lastOrNull()
+            val cleared = session.copy(pending = session.pending.dropLast(1))
             val trace = dropped?.let {
                 listOf(
                     Effect.Record(
@@ -256,10 +370,19 @@ object ReviewSessionEngine {
                 }
 
             is SessionState.AwaitingCorrection -> settle(session, state, null, nowMs)
+            is SessionState.Revisiting -> resumeAfterRevisit(session, state, nowMs)
             else -> Reduction(session, emptyList())
         }
 
     private fun onExplained(session: Session, event: Event.Explained, nowMs: Long): Reduction {
+        // Explication demandee dans une parenthese : on l'enonce, la reprise suit.
+        (session.state as? SessionState.Revisiting)?.let { revisiting ->
+            return Reduction(
+                session.copy(state = revisiting.copy(explaining = true)),
+                listOf(Effect.Speak(event.text)),
+            )
+        }
+
         val state = session.state as? SessionState.Judging ?: return Reduction(session, emptyList())
         val judgement = Judgement(
             verdict = Verdict.FAUX,
@@ -378,21 +501,25 @@ object ReviewSessionEngine {
             mode = session.writeMode,
         )
 
-        val commitEffects = session.pending?.let {
+        // La file deborde : la plus ancienne part a l'ecriture.
+        val queued = session.pending + PendingAnswer(
+            card = state.inFlight.card,
+            ease = ease,
+            timeTakenMs = nowMs - state.inFlight.askedAtMs,
+            record = record,
+        )
+        val overflow = queued.dropLast(MAX_PENDING)
+        val kept = queued.takeLast(MAX_PENDING)
+        val commitEffects = overflow.flatMap {
             listOf(Effect.Commit(it), Effect.Record(it.record))
-        } ?: emptyList()
+        }
 
         val memory = judgement?.let { SessionMemoryBuilder.absorb(session.memory, it) }
             ?: session.memory
 
         val settled = session.copy(
             memory = memory,
-            pending = PendingAnswer(
-                card = state.inFlight.card,
-                ease = ease,
-                timeTakenMs = nowMs - state.inFlight.askedAtMs,
-                record = record,
-            ),
+            pending = kept,
             stats = session.stats.copy(
                 answered = session.stats.answered + 1,
                 correct = session.stats.correct +
@@ -451,14 +578,14 @@ object ReviewSessionEngine {
         nowMs: Long,
         carried: List<Effect> = emptyList(),
     ): Reduction {
-        val flush = session.pending?.let {
+        val flush = session.pending.flatMap {
             listOf(Effect.Commit(it), Effect.Record(it.record))
-        } ?: emptyList()
+        }
         val stats = session.stats.copy(
             committed = session.stats.committed + flush.count { it is Effect.Commit },
         )
         return Reduction(
-            session.copy(state = SessionState.Finished(stats), pending = null, stats = stats),
+            session.copy(state = SessionState.Finished(stats), pending = emptyList(), stats = stats),
             carried + flush + listOf(
                 Effect.Speak(
                     "Session terminée. ${stats.answered} cartes, ${stats.correct} justes.",
