@@ -34,6 +34,7 @@ class SessionService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var job: Job? = null
     private var speaker: AndroidSpeaker? = null
+    private var loop: SessionLoop? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -77,7 +78,7 @@ class SessionService : Service() {
 
         val guard = AudioFocusGuard(this)
 
-        val loop = SessionLoop(
+        val session = SessionLoop(
             gateway = AnkiDroidGateway(contentResolver),
             tutor = AnthropicTutor(settings.apiKey),
             speaker = FocusAwareSpeaker(tts, guard),
@@ -92,13 +93,15 @@ class SessionService : Service() {
             },
             writeMode = settings.writeMode,
         )
+        loop = session
 
-        val mirror = scope.launch { loop.state.collect { holder.publish(it) } }
+        val mirror = scope.launch { session.state.collect { holder.publish(it) } }
 
         val outcome = runCatching {
-            guard.withFocus { loop.run(settings.deckId, settings.cardLimit) }
+            guard.withFocus { session.run(settings.deckId, settings.cardLimit) }
         }
         mirror.cancel()
+        loop = null
 
         holder.finish(
             outcome.fold(
@@ -109,11 +112,21 @@ class SessionService : Service() {
         stopSelf()
     }
 
+    /**
+     * Arret demande par l'utilisateur. On ne coupe pas la coroutine : la note de la carte
+     * qu'il vient de repondre est en attente d'ecriture, et l'annulation la jetterait.
+     * Le moteur recoit une demande d'arret et vide ce qu'il a en main avant de rendre.
+     */
     private fun stopSession() {
-        speaker?.stop()
-        job?.cancel()
-        job = null
-        stopSelf()
+        val running = loop
+        if (running == null) {
+            speaker?.stop()
+            job?.cancel()
+            job = null
+            stopSelf()
+            return
+        }
+        running.requestStop()
     }
 
     override fun onDestroy() {

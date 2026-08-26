@@ -50,10 +50,13 @@ sealed interface SessionState {
     data class SpeakingVerdict(
         val inFlight: CardInFlight,
         val assessment: Assessment,
+        /** La reponse telle qu'entendue : elle doit atteindre le journal. */
+        val transcript: String = "",
     ) : SessionState
     data class AwaitingCorrection(
         val inFlight: CardInFlight,
         val assessment: Assessment,
+        val transcript: String = "",
     ) : SessionState
     data class Finished(val stats: SessionStats) : SessionState
     data class Failed(val reason: String) : SessionState

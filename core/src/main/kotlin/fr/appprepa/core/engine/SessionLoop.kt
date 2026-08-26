@@ -9,8 +9,11 @@ import fr.appprepa.core.ports.ListenResult
 import fr.appprepa.core.ports.Listener
 import fr.appprepa.core.ports.Speaker
 import fr.appprepa.core.ports.Tutor
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -37,13 +40,35 @@ class SessionLoop(
     private val queue = ArrayDeque<Event>()
     private val prefetchJobs = mutableListOf<Job>()
 
+    @Volatile
+    private var stopRequested = false
+    private var currentListen: Deferred<ListenResult>? = null
+
+    /**
+     * Arret propre demande de l'exterieur. Annuler la coroutine suffirait a rendre la main,
+     * mais jetterait la note de la carte qu'on vient de repondre : elle est en attente
+     * d'ecriture, et seule une fin propre la vide.
+     */
+    fun requestStop() {
+        stopRequested = true
+        speaker.stop()
+        currentListen?.cancel()
+    }
+
     suspend fun run(deckId: Long?, limit: Int): SessionStats = coroutineScope {
         session = Session(writeMode = writeMode)
+        stopRequested = false
         queue.clear()
         queue += Event.Start(deckId, limit)
 
         while (queue.isNotEmpty()) {
-            val event = queue.removeFirst()
+            val queued = queue.removeFirst()
+            val event = if (stopRequested && queued != Event.StopRequested) {
+                queue.clear()
+                Event.StopRequested
+            } else {
+                queued
+            }
             val reduction = ReviewSessionEngine.reduce(session, event, clock.nowMs())
             session = reduction.session
             _state.value = session.state
@@ -69,14 +94,25 @@ class SessionLoop(
             }.getOrElse { Event.Fatal(it.message ?: "lecture AnkiDroid impossible") }
 
             is Effect.Speak -> {
-                speaker.speak(effect.text)
+                if (!stopRequested) speaker.speak(effect.text)
                 queue += Event.SpeechFinished
             }
 
-            is Effect.Listen -> queue += when (val result = listener.listen(effect.timeoutMs)) {
-                is ListenResult.Transcript -> Event.Heard(result.text)
-                ListenResult.Silence -> Event.HeardNothing
-                is ListenResult.Failure -> Event.HeardNothing
+            is Effect.Listen -> {
+                val awaited = scope.async { listener.listen(effect.timeoutMs) }
+                currentListen = awaited
+                val result = try {
+                    awaited.await()
+                } catch (cancelled: CancellationException) {
+                    ListenResult.Silence
+                } finally {
+                    currentListen = null
+                }
+                queue += when (result) {
+                    is ListenResult.Transcript -> Event.Heard(result.text)
+                    ListenResult.Silence -> Event.HeardNothing
+                    is ListenResult.Failure -> Event.HeardNothing
+                }
             }
 
             is Effect.Reformulate ->

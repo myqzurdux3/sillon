@@ -69,8 +69,13 @@ fun HomeScreen(
         when (val done = outcome) {
             is SessionOutcome.Failed -> Text("Échec : ${done.reason}")
             is SessionOutcome.Completed -> Text(
+                // En mode journal rien n'atteint Anki : le dire, sinon le compteur ment.
                 "${done.stats.answered} cartes, ${done.stats.correct} justes, " +
-                    "${done.stats.committed} notées.",
+                    if (writeThrough) {
+                        "${done.stats.committed} écrites dans Anki."
+                    } else {
+                        "${done.stats.committed} journalisées, aucune écrite dans Anki."
+                    },
             )
             null -> Unit
         }

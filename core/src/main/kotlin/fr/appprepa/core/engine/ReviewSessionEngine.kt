@@ -109,7 +109,11 @@ object ReviewSessionEngine {
 
             is SessionState.SpeakingVerdict -> Reduction(
                 session.copy(
-                    state = SessionState.AwaitingCorrection(state.inFlight, state.assessment),
+                    state = SessionState.AwaitingCorrection(
+                        state.inFlight,
+                        state.assessment,
+                        state.transcript,
+                    ),
                 ),
                 listOf(
                     Effect.Listen(
@@ -164,7 +168,7 @@ object ReviewSessionEngine {
 
         // Une correction de note n'a pas de sens pendant la reponse : c'est du texte.
         else -> if (session.degraded) {
-            speakAnswerForSelfGrade(session, state.inFlight)
+            speakAnswerForSelfGrade(session, state.inFlight, transcript)
         } else {
             Reduction(
                 session.copy(state = SessionState.Judging(state.inFlight, transcript)),
@@ -241,6 +245,7 @@ object ReviewSessionEngine {
                             state = SessionState.SpeakingVerdict(
                                 state.inFlight,
                                 Assessment.Judged(giveUp),
+                                "",
                             ),
                         ),
                         listOf(Effect.Speak(giveUp.spokenFeedback)),
@@ -263,7 +268,11 @@ object ReviewSessionEngine {
         )
         return Reduction(
             session.copy(
-                state = SessionState.SpeakingVerdict(state.inFlight, Assessment.Judged(judgement)),
+                state = SessionState.SpeakingVerdict(
+                    state.inFlight,
+                    Assessment.Judged(judgement),
+                    state.transcript,
+                ),
             ),
             listOf(Effect.Speak("${event.text} Je mets à revoir.")),
         )
@@ -279,7 +288,8 @@ object ReviewSessionEngine {
     private fun onTutorFailed(session: Session, nowMs: Long): Reduction {
         val degraded = session.copy(degraded = true)
         return when (val state = session.state) {
-            is SessionState.Judging -> speakAnswerForSelfGrade(degraded, state.inFlight)
+            is SessionState.Judging ->
+                speakAnswerForSelfGrade(degraded, state.inFlight, state.transcript)
 
             is SessionState.Preparing -> {
                 val inFlight = CardInFlight(state.card, state.card.question, emptyList(), nowMs)
@@ -293,13 +303,18 @@ object ReviewSessionEngine {
         }
     }
 
-    private fun speakAnswerForSelfGrade(session: Session, inFlight: CardInFlight): Reduction =
+    private fun speakAnswerForSelfGrade(
+        session: Session,
+        inFlight: CardInFlight,
+        transcript: String = "",
+    ): Reduction =
         Reduction(
             session.copy(
                 degraded = true,
                 state = SessionState.SpeakingVerdict(
                     inFlight,
                     Assessment.SelfGrade(inFlight.card.answer),
+                    transcript,
                 ),
             ),
             listOf(
@@ -316,7 +331,11 @@ object ReviewSessionEngine {
         )
         return Reduction(
             session.copy(
-                state = SessionState.SpeakingVerdict(state.inFlight, Assessment.Judged(bounded)),
+                state = SessionState.SpeakingVerdict(
+                    state.inFlight,
+                    Assessment.Judged(bounded),
+                    state.transcript,
+                ),
             ),
             listOf(Effect.Speak("${bounded.spokenFeedback} Je mets ${label(bounded.ease)}.")),
         )
@@ -345,7 +364,7 @@ object ReviewSessionEngine {
             cardOrd = state.inFlight.card.cardOrd,
             deckName = state.inFlight.card.deckName,
             question = state.inFlight.question,
-            transcript = "",
+            transcript = state.transcript,
             proposedEase = judgement?.ease,
             committedEase = if (session.writeMode == WriteMode.WRITE_THROUGH) ease else null,
             verdict = judgement?.verdict,
