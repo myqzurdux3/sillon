@@ -21,26 +21,25 @@ object Utterance {
      * auxiliaires : aucun ne peut clore une phrase francaise.
      */
     private val DANGLING = setOf(
-        // conjonctions et articulations
+        // Conjonctions et articulations : aucune ne peut clore une phrase.
         "et", "ou", "mais", "donc", "or", "ni", "car", "puis", "ensuite", "alors",
-        "parce", "puisque", "comme", "si", "quand", "lorsque", "tandis", "sauf",
-        "cependant", "pourtant", "toutefois", "ainsi", "surtout", "notamment",
-        // relatifs et interrogatifs
-        "que", "qui", "quoi", "dont", "lequel", "laquelle", "auquel",
-        // prepositions
-        "de", "du", "des", "en", "dans", "sur", "sous", "par", "pour", "avec",
-        "sans", "vers", "chez", "entre", "selon", "depuis", "pendant", "jusqu", "contre",
-        // determinants
+        "parce", "puisque", "lorsque", "tandis", "cependant", "pourtant", "toutefois",
+        // Relatifs. « quoi » est exclu : « n'importe quoi » est une fin.
+        "que", "qui", "dont", "lequel", "laquelle", "auquel",
+        // Prepositions.
+        "de", "du", "des", "dans", "sur", "sous", "par", "pour", "avec",
+        "sans", "vers", "chez", "entre", "selon", "depuis", "pendant", "jusqu",
+        // Determinants. « aucun » et « plusieurs » sont exclus : « il n'y en a aucun ».
         "le", "la", "les", "ce", "cet", "cette", "ces", "mon", "ma", "mes",
-        "son", "sa", "ses", "leur", "leurs", "notre", "votre", "aucun", "chaque", "tout",
-        "toute", "tous", "toutes", "quelque", "quelques", "plusieurs",
-        // auxiliaires et copules
-        "est", "sont", "etait", "etaient", "sera", "seront", "ont", "avait",
-        "avaient", "aura", "peut", "peuvent", "doit", "doivent", "va", "vont", "fait",
-        // adverbes qui attendent leur complement
-        "plus", "moins", "aussi", "tres", "assez", "trop", "bien", "presque", "environ",
-        // elisions laissees par la normalisation
-        "qu", "jusqu", "lorsqu", "puisqu",
+        "son", "sa", "ses", "leur", "leurs", "notre", "votre", "chaque",
+        // Copules. Les autres auxiliaires sont exclus : « il le peut », « elles y vont ».
+        "est", "sont", "etait", "etaient", "sera", "seront",
+        // Adverbes qui exigent un complement. Le reste du groupe a ete retire : « c'est
+        // tout », « la suite converge bien », « il converge aussi », « c'est trop » sont
+        // des fins de phrase, et les relancer interromprait une reponse complete.
+        "tres", "environ",
+        // Elisions laissees par la normalisation.
+        "qu", "lorsqu", "puisqu",
     )
 
     /** En dessous, ce n'est pas une phrase en suspens : c'est une reponse tres courte. */

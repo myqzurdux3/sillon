@@ -124,8 +124,6 @@ class AndroidListener(private val context: Context) : Listener {
                         RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS,
                         SILENCE_FIN_MS,
                     )
-                    // Un « oui » lache tout de suite ne doit pas etre pris pour du bruit.
-                    putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, 1_000L)
                 }
 
                 expiry = Runnable { settle(ListenResult.Silence) }

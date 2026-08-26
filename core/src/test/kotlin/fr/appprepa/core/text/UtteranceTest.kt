@@ -36,6 +36,28 @@ class UtteranceTest {
     }
 
     @Test
+    fun `les fins de phrase naturelles ne sont jamais relancees`() {
+        // Interrompre une reponse complete est la pire des reactions : on penche vers la
+        // relance dans le doute, mais pas au point de couper quelqu'un qui a fini.
+        listOf(
+            "c'est tout",
+            "la suite converge bien",
+            "il converge aussi",
+            "c'est vrai surtout",
+            "le raisonnement est bien fait",
+            "il n'y en a plus",
+            "c'est trop",
+            "il n'y en a aucun",
+            "il y en a plusieurs",
+            "on peut le faire",
+            "elles y vont",
+            "c'est n'importe quoi",
+        ).forEach {
+            assertFalse("« $it » est une fin de phrase", Utterance.looksUnfinished(it))
+        }
+    }
+
+    @Test
     fun `une reponse d'un seul mot n'est pas une phrase en suspens`() {
         // « bien » est dans la liste des mots qui appellent une suite, mais seul il
         // constitue une reponse : relancer sur un mot unique serait insupportable.

@@ -48,6 +48,13 @@ class SessionLoop(
     @Volatile
     private var stopRequested = false
     private var writeFailures = 0
+
+    /**
+     * Volatile : [requestStop] est appele depuis l'exterieur de la boucle — le bouton
+     * « Arreter », et la perte definitive du focus audio, chacun sur son propre thread.
+     * Une lecture perimee ici laisserait l'ecoute en cours aller jusqu'a son delai.
+     */
+    @Volatile
     private var currentListen: Deferred<ListenResult>? = null
 
     /**
