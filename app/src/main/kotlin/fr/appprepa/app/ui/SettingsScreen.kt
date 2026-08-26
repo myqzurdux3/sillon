@@ -45,6 +45,7 @@ fun SettingsScreen(
     deckSummary: String,
     onOpenDecks: () -> Unit,
     onOpenJournal: () -> Unit,
+    onOpenVoiceHelp: () -> Unit,
     onBack: () -> Unit,
 ) {
     var apiKey by remember { mutableStateOf(settings.apiKey) }
@@ -179,6 +180,13 @@ fun SettingsScreen(
         )
 
         HorizontalDivider(thickness = 1.dp, color = SillonPalette.rule)
+        TextButton(onClick = onOpenVoiceHelp) {
+            Text(
+                "Ce que tu peux dire",
+                color = MaterialTheme.colorScheme.onBackground,
+                fontSize = 16.sp,
+            )
+        }
         TextButton(onClick = onOpenJournal) {
             Text("Voir le journal", color = MaterialTheme.colorScheme.onBackground, fontSize = 16.sp)
         }

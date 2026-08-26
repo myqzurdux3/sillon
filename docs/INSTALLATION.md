@@ -69,6 +69,11 @@ n'affiche qu'un état en gros caractères et ne te demande jamais rien.
 
 ### Ce que tu peux dire
 
+La liste complète est **dans l'application** : Réglages → « Ce que tu peux dire ». Cet
+écran-là est produit à partir du code qui reconnaît les mots, donc il ne peut pas annoncer
+une tournure qui ne marche pas. Le tableau ci-dessous en est un extrait, pour lire avant
+d'installer.
+
 L'application t'écoute dans **deux fenêtres** : quand elle attend ta réponse, et pendant
 les sept secondes qui suivent son verdict. La dernière colonne dit où chaque commande agit.
 

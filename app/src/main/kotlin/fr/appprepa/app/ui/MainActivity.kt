@@ -24,7 +24,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
 
-private enum class Screen { HOME, SETTINGS, DECKS, JOURNAL }
+private enum class Screen { HOME, SETTINGS, DECKS, JOURNAL, VOICE_HELP }
 
 class MainActivity : ComponentActivity() {
 
@@ -86,7 +86,7 @@ class MainActivity : ComponentActivity() {
                 // depuis l'accueil.
                 BackHandler(enabled = screen != Screen.HOME) {
                     screen = when (screen) {
-                        Screen.DECKS, Screen.JOURNAL -> Screen.SETTINGS
+                        Screen.DECKS, Screen.JOURNAL, Screen.VOICE_HELP -> Screen.SETTINGS
                         else -> Screen.HOME
                     }
                 }
@@ -105,6 +105,7 @@ class MainActivity : ComponentActivity() {
                         deckSummary = deckSummary(decks, selectedDecks),
                         onOpenDecks = { screen = Screen.DECKS },
                         onOpenJournal = { screen = Screen.JOURNAL },
+                        onOpenVoiceHelp = { screen = Screen.VOICE_HELP },
                         onBack = { screen = Screen.HOME },
                     )
 
@@ -132,6 +133,8 @@ class MainActivity : ComponentActivity() {
                     )
 
                     Screen.JOURNAL -> JournalScreen(entries) { screen = Screen.SETTINGS }
+
+                    Screen.VOICE_HELP -> VoiceHelpScreen { screen = Screen.SETTINGS }
                 }
             }
         }
