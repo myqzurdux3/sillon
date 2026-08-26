@@ -8,12 +8,14 @@ import fr.appprepa.core.ports.Speaker
 import kotlinx.coroutines.CompletableDeferred
 import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicLong
 
 class AndroidSpeaker(context: Context) : Speaker {
 
     private val initialized = CompletableDeferred<Boolean>()
     private val pending = ConcurrentHashMap<String, CompletableDeferred<Unit>>()
-    private var counter = 0L
+    /** Deux enonces ne doivent jamais partager un identifiant : l'un ne reviendrait pas. */
+    private val counter = AtomicLong(0)
 
     /**
      * Le rappel d'initialisation peut se declencher avant que le constructeur ait rendu
@@ -59,7 +61,7 @@ class AndroidSpeaker(context: Context) : Speaker {
     /** Ne rend la main qu'a la fin reelle de l'enonce. */
     override suspend fun speak(text: String) {
         if (!initialized.await()) return
-        val id = "u${counter++}"
+        val id = "u${counter.getAndIncrement()}"
         val done = CompletableDeferred<Unit>()
         pending[id] = done
         engine.speak(text, TextToSpeech.QUEUE_ADD, null, id)

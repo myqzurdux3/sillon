@@ -14,6 +14,6 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "app-prepa"
+rootProject.name = "sillon"
 include(":core")
 include(":app")

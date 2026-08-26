@@ -88,12 +88,17 @@ class DeckSelectionTest {
 
     @Test
     fun `rien de coche veut dire tous les paquets`() {
-        assertEquals(decks.map { it.id }.toSet(), DeckSelection.effective(decks, emptySet()))
+        assertEquals(emptySet<Long>(), DeckSelection.effective(decks, emptySet()))
         assertEquals(setOf(3L), DeckSelection.effective(decks, setOf(3L)))
     }
 
     @Test
     fun `une selection qui pointe un paquet disparu est ignoree`() {
         assertEquals(setOf(3L), DeckSelection.effective(decks, setOf(3L, 999L)))
+        assertEquals(
+            "une selection entierement perimee revient a tous les paquets",
+            emptySet<Long>(),
+            DeckSelection.effective(decks, setOf(998L, 999L)),
+        )
     }
 }

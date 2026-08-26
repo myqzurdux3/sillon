@@ -13,6 +13,7 @@ import fr.appprepa.core.model.SessionMemory
 import fr.appprepa.core.ports.Tutor
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.time.Duration
 
 /**
  * Les deux appels de la boucle sont courts et la latence prime sur la profondeur :
@@ -27,8 +28,7 @@ class AnthropicTutor(
     private val fast: Boolean = false,
     /** Modele du jugement. La reformulation garde toujours le modele principal. */
     private val judgeModel: String = MODEL,
-    private val client: AnthropicClient =
-        AnthropicOkHttpClient.builder().apiKey(apiKey).build(),
+    private val client: AnthropicClient = defaultClient(apiKey),
 ) : Tutor {
 
     override suspend fun reformulate(
@@ -96,6 +96,24 @@ class AnthropicTutor(
     }
 
     companion object {
+        /**
+         * Au volant, une requete qui pend est pire qu'une requete qui echoue : l'echec
+         * bascule en lecture simple et la session continue, l'attente ne rend jamais la
+         * main. Le delai par defaut du client se compte en minutes ; celui-ci est cale
+         * sur ce qu'un conducteur peut supporter de silence.
+         */
+        val TIMEOUT: Duration = Duration.ofSeconds(20)
+
+        /** Une seule reprise : au-dela, le mode degrade est plus rapide que l'insistance. */
+        const val MAX_RETRIES = 1
+
+        private fun defaultClient(apiKey: String): AnthropicClient =
+            AnthropicOkHttpClient.builder()
+                .apiKey(apiKey)
+                .timeout(TIMEOUT)
+                .maxRetries(MAX_RETRIES)
+                .build()
+
         const val MODEL = "claude-opus-5"
 
         /** Les deux sorties attendues tiennent tres largement dedans. */

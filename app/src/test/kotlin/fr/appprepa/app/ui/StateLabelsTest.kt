@@ -33,7 +33,7 @@ class StateLabelsTest {
             SessionState.SpeakingVerdict(
                 inFlight,
                 Assessment.Judged(
-                    Judgement(Verdict.CORRECT, Ease.GOOD, "ok", emptyList(), null, null),
+                    Judgement(Verdict.CORRECT, Ease.GOOD, "ok", null, null),
                 ),
             ),
             SessionState.AwaitingCorrection(inFlight, Assessment.SelfGrade("verso")),

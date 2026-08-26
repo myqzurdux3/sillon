@@ -14,8 +14,8 @@
   <img alt="Licence MIT" src="https://img.shields.io/badge/licence-MIT-FF4D2E">
   <img alt="Android 12+" src="https://img.shields.io/badge/Android-12%2B-FF4D2E">
   <img alt="Kotlin, 100% Compose" src="https://img.shields.io/badge/Kotlin-100%25%20Compose-FF4D2E">
-  <img alt="164 tests JVM" src="https://img.shields.io/badge/tests%20JVM-164-FF4D2E">
-  <img alt="14 tests instrumentés" src="https://img.shields.io/badge/tests%20instrument%C3%A9s-14-FF4D2E">
+  <img alt="180 tests JVM" src="https://img.shields.io/badge/tests%20JVM-180-FF4D2E">
+  <img alt="15 tests instrumentés" src="https://img.shields.io/badge/tests%20instrument%C3%A9s-15-FF4D2E">
   <img alt="Mains libres" src="https://img.shields.io/badge/mains-libres-0B0B0C">
 </p>
 
@@ -54,8 +54,12 @@ ce que l'application *aurait* noté, pour que tu juges sa fiabilité sur tes pro
 avant de lui confier ton calendrier de révision.
 
 **Une panne ne ressemble jamais à un silence.** Micro refusé, service de reconnaissance
-absent, réseau coupé : chacun se signale et s'annonce. Confondre les deux ferait défiler un
-trajet entier en notant tout « à revoir », sans un mot d'explication.
+absent, réseau coupé, note refusée par AnkiDroid : chacun se signale, s'annonce et se
+retrouve dans le journal. Confondre panne et silence ferait défiler un trajet entier en
+notant tout « à revoir », sans un mot d'explication.
+
+Le mode dégradé ne vaut que pour la carte où la panne a eu lieu : chaque nouvelle carte
+retente le modèle, donc une coupure de dix secondes sous un pont ne condamne pas le trajet.
 
 ## À quoi ça ressemble
 
@@ -70,16 +74,20 @@ que l'application écoute.
 
 ## Ce que tu peux dire
 
-| Pour | Dis |
-|---|---|
-| Corriger la note | « à revoir », « difficile », « bien », « facile » |
-| Réentendre la question | « répète », « pardon » |
-| Passer sans noter | « passe », « suivante » |
-| Te faire expliquer | « explique », « je sèche » |
-| Revenir sur la carte précédente | « reviens », « la précédente », « carte d'avant » |
-| Te faire réexpliquer la précédente | « explique la précédente », « c'était quoi déjà » |
-| Annuler la note précédente | « annule » |
-| Terminer | « stop », « pause », « terminé » |
+| Pour | Dis | Quand |
+|---|---|---|
+| Corriger la note | « à revoir », « faux », « difficile », « bien », « facile » | après le verdict |
+| Réentendre la question | « répète », « pardon » | pendant la réponse |
+| Réentendre le verdict | « répète » | après le verdict |
+| Passer sans noter | « passe », « suivante » | pendant la réponse |
+| Te faire expliquer | « explique », « je sèche » | pendant la réponse |
+| Revenir sur la carte précédente | « reviens », « la précédente », « carte d'avant » | les deux |
+| Te faire réexpliquer la précédente | « explique la précédente », « c'était quoi déjà » | les deux |
+| Annuler la note précédente | « annule » | les deux |
+| Terminer | « stop », « terminé » | les deux |
+
+Une commande n'est reconnue que si elle constitue toute la phrase : « je ne suis pas sûr,
+passe » compte comme une réponse. Sinon la moitié des réponses déclencheraient une commande.
 
 « reviens » s'écoute **à tout moment où l'application t'écoute**, y compris au milieu de la
 question suivante. Elle ouvre une parenthèse sur la carte d'avant, puis réénonce la question
@@ -108,7 +116,7 @@ quelques millisecondes, sans émulateur, sans micro et sans réseau, à travers 
 doublés.
 
 ```bash
-./gradlew :core:test               # 164 tests, sans Android
+./gradlew :core:test               # 151 tests, sans Android
 bash scripts/prepare-emulator.sh   # installe AnkiDroid sur l'émulateur
 ./gradlew :app:connectedDebugAndroidTest
 ```
@@ -123,6 +131,7 @@ La clé est stockée chiffrée sur l'appareil et ne quitte jamais le téléphone
 l'API. Aucune carte n'est envoyée ailleurs.
 
 `docs/INSTALLATION.md` détaille la prise en main, commande par commande.
+`docs/conception.md` dit pourquoi l'application est faite ainsi.
 
 ## Licence
 

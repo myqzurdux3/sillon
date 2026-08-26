@@ -1,6 +1,9 @@
+@file:Suppress("DEPRECATION")
+
 package fr.appprepa.app.settings
 
 import android.content.Context
+import androidx.core.content.edit
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import fr.appprepa.core.model.WriteMode
@@ -8,7 +11,14 @@ import fr.appprepa.core.model.WriteMode
 /** Plafond « tout » : au-dela d'un trajet, la limite n'a plus de sens. */
 const val ALL_CARDS = 200
 
-/** La cle d'API est un secret : preferences chiffrees, jamais de fichier versionne. */
+/**
+ * La cle d'API est un secret : preferences chiffrees, jamais de fichier versionne.
+ *
+ * `EncryptedSharedPreferences` est depreciee depuis 2025 et sans remplacant direct chez
+ * Jetpack. En changer demanderait de faire migrer la cle deja stockee sur le telephone,
+ * sous peine de la perdre en silence — un chantier a part, pas un nettoyage. La
+ * depreciation est donc assumee ici, et non subie a chaque compilation.
+ */
 class SettingsStore(context: Context) {
 
     private val prefs = EncryptedSharedPreferences.create(
@@ -23,13 +33,13 @@ class SettingsStore(context: Context) {
 
     var apiKey: String
         get() = prefs.getString(KEY_API, "").orEmpty()
-        set(value) = prefs.edit().putString(KEY_API, value.trim()).apply()
+        set(value) = prefs.edit { putString(KEY_API, value.trim()) }
 
     /** Par defaut, rien n'est ecrit dans Anki. Le basculement est une decision explicite. */
     var writeMode: WriteMode
         get() = runCatching { WriteMode.valueOf(prefs.getString(KEY_MODE, null) ?: "") }
             .getOrDefault(WriteMode.JOURNAL_ONLY)
-        set(value) = prefs.edit().putString(KEY_MODE, value.name).apply()
+        set(value) = prefs.edit { putString(KEY_MODE, value.name) }
 
     /** Paquets coches. Vide veut dire « tous les paquets ». */
     var deckIds: Set<Long>
@@ -37,9 +47,7 @@ class SettingsStore(context: Context) {
             .split(',')
             .mapNotNull { it.trim().toLongOrNull() }
             .toSet()
-        set(value) = prefs.edit()
-            .putString(KEY_DECKS, value.joinToString(",")) 
-            .apply()
+        set(value) = prefs.edit { putString(KEY_DECKS, value.joinToString(",")) }
 
     /** Paquets replies dans l'ecran de choix. Memorise, sinon on replie a chaque fois. */
     var collapsedDeckIds: Set<Long>
@@ -47,11 +55,11 @@ class SettingsStore(context: Context) {
             .split(',')
             .mapNotNull { it.trim().toLongOrNull() }
             .toSet()
-        set(value) = prefs.edit().putString(KEY_COLLAPSED, value.joinToString(",")).apply()
+        set(value) = prefs.edit { putString(KEY_COLLAPSED, value.joinToString(",")) }
 
     var cardLimit: Int
         get() = prefs.getInt(KEY_LIMIT, DEFAULT_LIMIT)
-        set(value) = prefs.edit().putInt(KEY_LIMIT, value.coerceIn(1, ALL_CARDS)).apply()
+        set(value) = prefs.edit { putInt(KEY_LIMIT, value.coerceIn(1, ALL_CARDS)) }
 
     /**
      * Juger avec un modele plus rapide et moins capable. Mesure sur cartes reelles :
@@ -60,12 +68,12 @@ class SettingsStore(context: Context) {
      */
     var fastJudge: Boolean
         get() = prefs.getBoolean(KEY_FAST_JUDGE, false)
-        set(value) = prefs.edit().putBoolean(KEY_FAST_JUDGE, value).apply()
+        set(value) = prefs.edit { putBoolean(KEY_FAST_JUDGE, value) }
 
     /** Repondre au clavier au lieu du micro, pour la mise au point. */
     var debugTranscripts: Boolean
         get() = prefs.getBoolean(KEY_DEBUG, false)
-        set(value) = prefs.edit().putBoolean(KEY_DEBUG, value).apply()
+        set(value) = prefs.edit { putBoolean(KEY_DEBUG, value) }
 
     companion object {
         /** Les tailles de session proposees. La derniere vaut « tout ce qui est du ». */

@@ -1,5 +1,6 @@
 package fr.appprepa.core.engine
 
+import fr.appprepa.core.model.JournalRecord
 import fr.appprepa.core.model.SessionStats
 import fr.appprepa.core.model.WriteMode
 import fr.appprepa.core.ports.AnkiGateway
@@ -46,6 +47,7 @@ class SessionLoop(
 
     @Volatile
     private var stopRequested = false
+    private var writeFailures = 0
     private var currentListen: Deferred<ListenResult>? = null
 
     /**
@@ -62,6 +64,7 @@ class SessionLoop(
     suspend fun run(deckIds: Set<Long>, limit: Int): SessionStats = coroutineScope {
         session = Session(writeMode = writeMode)
         stopRequested = false
+        writeFailures = 0
         queue.clear()
         queue += Event.Start(deckIds, limit)
 
@@ -89,7 +92,24 @@ class SessionLoop(
 
         prefetchJobs.forEach { it.cancel() }
         prefetchJobs.clear()
-        (session.state as? SessionState.Finished)?.stats ?: session.stats
+        val stats = (session.state as? SessionState.Finished)?.stats ?: session.stats
+        stats.copy(writeFailures = writeFailures)
+    }
+
+    /** En mode journal, rien ne part dans Anki : le journal ne doit pas dire l'inverse. */
+    private fun normalized(entry: JournalRecord): JournalRecord =
+        if (writeMode == WriteMode.WRITE_THROUGH) {
+            entry
+        } else {
+            entry.copy(committedEase = null, mode = WriteMode.JOURNAL_ONLY)
+        }
+
+    private fun trace(entry: JournalRecord, ecriture: Result<Unit>?): JournalRecord {
+        val echec = ecriture?.exceptionOrNull() ?: return normalized(entry)
+        return entry.copy(
+            committedEase = null,
+            note = "AnkiDroid a refuse la note : ${echec.message ?: "raison inconnue"}",
+        )
     }
 
     private suspend fun perform(effect: Effect, scope: CoroutineScope) {
@@ -154,27 +174,28 @@ class SessionLoop(
                 Event.Explained(tutor.explain(effect.card))
             }.getOrElse { Event.TutorFailed(it.message ?: "explication impossible") }
 
-            is Effect.Commit -> if (writeMode == WriteMode.WRITE_THROUGH) {
-                runCatching {
-                    gateway.answer(
-                        effect.pending.card.noteId,
-                        effect.pending.card.cardOrd,
-                        effect.pending.ease,
-                        effect.pending.timeTakenMs,
-                    )
+            // Ecriture et trace vont ensemble : c'est le seul moyen que le journal dise
+            // ce qui est reellement parti dans Anki. Une ecriture refusee et journalisee
+            // comme reussie rendrait le journal inutilisable, alors que c'est justement
+            // le document qui sert a decider d'activer l'ecriture reelle.
+            is Effect.Commit -> {
+                val ecriture = if (writeMode == WriteMode.WRITE_THROUGH) {
+                    runCatching {
+                        gateway.answer(
+                            effect.pending.card.noteId,
+                            effect.pending.card.cardOrd,
+                            effect.pending.ease,
+                            effect.pending.timeTakenMs,
+                        )
+                    }
+                } else {
+                    null
                 }
-                Unit
-            } else {
-                Unit
+                if (ecriture?.isFailure == true) writeFailures++
+                journal.record(trace(effect.pending.record, ecriture))
             }
 
-            is Effect.Record -> journal.record(
-                if (writeMode == WriteMode.WRITE_THROUGH) {
-                    effect.entry
-                } else {
-                    effect.entry.copy(committedEase = null, mode = WriteMode.JOURNAL_ONLY)
-                },
-            )
+            is Effect.Record -> journal.record(normalized(effect.entry))
 
             Effect.Finish -> Unit
         }

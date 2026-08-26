@@ -18,7 +18,6 @@ class SessionMemoryBuilderTest {
         verdict = verdict,
         ease = Ease.fromVerdict(verdict),
         spokenFeedback = "peu importe",
-        missed = emptyList(),
         formulationNote = formulation,
         topic = topic,
     )

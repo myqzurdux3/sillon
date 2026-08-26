@@ -12,7 +12,15 @@ import kotlinx.coroutines.CompletableDeferred
  * de s'arreter, et une instruction GPS ou un appel entrant suspend la session au lieu de
  * parler par-dessus.
  */
-class AudioFocusGuard(context: Context) {
+class AudioFocusGuard(
+    context: Context,
+    /**
+     * Une perte definitive du focus — un appel qui dure, un autre assistant qui prend la
+     * main — ne rend jamais le focus. Attendre une reprise qui n'arrivera pas figerait la
+     * session sans un mot ; on prefere l'arreter proprement, notes en attente comprises.
+     */
+    private val onPermanentLoss: () -> Unit = {},
+) {
 
     private val manager = context.getSystemService(AudioManager::class.java)
 
@@ -28,19 +36,25 @@ class AudioFocusGuard(context: Context) {
         )
         .setOnAudioFocusChangeListener { change ->
             when (change) {
-                AudioManager.AUDIOFOCUS_LOSS,
-                AudioManager.AUDIOFOCUS_LOSS_TRANSIENT,
-                -> if (paused == null) paused = CompletableDeferred()
-
-                AudioManager.AUDIOFOCUS_GAIN -> {
-                    paused?.complete(Unit)
-                    paused = null
+                AudioManager.AUDIOFOCUS_LOSS -> {
+                    resume()
+                    onPermanentLoss()
                 }
+
+                AudioManager.AUDIOFOCUS_LOSS_TRANSIENT ->
+                    synchronized(this) { if (paused == null) paused = CompletableDeferred() }
+
+                AudioManager.AUDIOFOCUS_GAIN -> resume()
 
                 else -> Unit
             }
         }
         .build()
+
+    private fun resume() = synchronized(this) {
+        paused?.complete(Unit)
+        paused = null
+    }
 
     suspend fun <T> withFocus(block: suspend () -> T): T {
         manager.requestAudioFocus(request)

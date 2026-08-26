@@ -83,4 +83,12 @@ class VoiceCommandParserTest {
     fun `renvoie None sur une chaine vide`() {
         assertEquals(VoiceCommand.None, VoiceCommandParser.parse("   "))
     }
+
+    @Test
+    fun `reconnait les refus les plus naturels apres un verdict trop genereux`() {
+        listOf("faux", "c'est faux", "mauvais", "nul", "pas bon").forEach {
+            assertEquals(it, VoiceCommand.Correct(Ease.AGAIN), VoiceCommandParser.parse(it))
+        }
+        assertEquals(VoiceCommand.Correct(Ease.HARD), VoiceCommandParser.parse("trop dur"))
+    }
 }

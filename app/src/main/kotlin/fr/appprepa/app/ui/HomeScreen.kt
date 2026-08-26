@@ -149,8 +149,13 @@ private fun secondLine(
     }
     return when (val done = outcome) {
         is SessionOutcome.Failed -> done.reason
-        is SessionOutcome.Completed ->
-            "${done.stats.answered} cartes, ${done.stats.correct} justes"
+        is SessionOutcome.Completed -> buildString {
+            append("${done.stats.answered} cartes, ${done.stats.correct} justes")
+            // Une ecriture refusee par AnkiDroid ne doit pas se decouvrir le soir.
+            if (done.stats.writeFailures > 0) {
+                append(" · ${done.stats.writeFailures} non écrites dans Anki")
+            }
+        }
         null -> "prêt à démarrer"
     }
 }

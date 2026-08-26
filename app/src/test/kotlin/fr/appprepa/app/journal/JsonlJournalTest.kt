@@ -83,4 +83,27 @@ class JsonlJournalTest {
 
         assertEquals(listOf(2L), journal.today(now).map { it.noteId })
     }
+
+    @Test
+    fun `les entrees trop vieilles sont jetees a la premiere ecriture`() = runBlocking {
+        val fichier = folder.newFile("vieux.jsonl")
+        val maintenant = 1_800_000_000_000L
+
+        JsonlJournal(fichier).record(record(1).copy(atMs = maintenant - 40L * 86_400_000L))
+        // Instance neuve : le nettoyage a lieu une fois par session, pas a chaque ligne.
+        JsonlJournal(fichier).record(record(2).copy(atMs = maintenant))
+
+        assertEquals(listOf(2L), JsonlJournal(fichier).readAll().map { it.noteId })
+    }
+
+    @Test
+    fun `une entree recente survit au nettoyage`() = runBlocking {
+        val fichier = folder.newFile("recent.jsonl")
+        val maintenant = 1_800_000_000_000L
+
+        JsonlJournal(fichier).record(record(1).copy(atMs = maintenant - 2L * 86_400_000L))
+        JsonlJournal(fichier).record(record(2).copy(atMs = maintenant))
+
+        assertEquals(listOf(1L, 2L), JsonlJournal(fichier).readAll().map { it.noteId })
+    }
 }

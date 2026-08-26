@@ -49,7 +49,7 @@ class RevisitOnDeviceTest {
             expectedPoints: List<String>,
             transcript: String,
             memory: SessionMemory,
-        ) = Judgement(Verdict.CORRECT, Ease.GOOD, "retour", emptyList(), null, "theme")
+        ) = Judgement(Verdict.CORRECT, Ease.GOOD, "retour", null, "theme")
         override suspend fun explain(card: ReviewCard) = "explication ${card.noteId}"
     }
 

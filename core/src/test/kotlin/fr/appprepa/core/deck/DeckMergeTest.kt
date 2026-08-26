@@ -11,13 +11,18 @@ import org.junit.Test
  */
 class DeckMergeTest {
 
+    /** Toujours la meme cle : une carte, c'est une note et un rang. */
+    private fun interleave(perDeck: List<List<ReviewCard>>, limit: Int) =
+        DeckMerge.interleave(perDeck, limit) { it.noteId to it.cardOrd }
+
+
     private fun cards(deck: String, count: Int, from: Long) = (0 until count).map {
         ReviewCard(from + it, 0, deck, "recto", "verso", 4, false)
     }
 
     @Test
     fun `les paquets alternent une carte a la fois`() {
-        val merged = DeckMerge.interleave(
+        val merged = interleave(
             listOf(cards("Maths", 3, 100), cards("Info", 3, 200)),
             limit = 6,
         )
@@ -29,7 +34,7 @@ class DeckMergeTest {
 
     @Test
     fun `un paquet epuise laisse la place aux autres`() {
-        val merged = DeckMerge.interleave(
+        val merged = interleave(
             listOf(cards("Maths", 1, 100), cards("Info", 3, 200)),
             limit = 10,
         )
@@ -38,7 +43,7 @@ class DeckMergeTest {
 
     @Test
     fun `la limite tronque le resultat`() {
-        val merged = DeckMerge.interleave(
+        val merged = interleave(
             listOf(cards("Maths", 10, 100), cards("Info", 10, 200)),
             limit = 3,
         )
@@ -47,13 +52,13 @@ class DeckMergeTest {
 
     @Test
     fun `moins de cartes que la limite rend ce qu'il y a`() {
-        val merged = DeckMerge.interleave(listOf(cards("Maths", 2, 100)), limit = 40)
+        val merged = interleave(listOf(cards("Maths", 2, 100)), limit = 40)
         assertEquals(2, merged.size)
     }
 
     @Test
     fun `aucune carte en double`() {
-        val merged = DeckMerge.interleave(
+        val merged = interleave(
             listOf(cards("Maths", 5, 100), cards("Info", 5, 100)),
             limit = 20,
         )
@@ -62,13 +67,13 @@ class DeckMergeTest {
 
     @Test
     fun `une liste vide ne casse rien`() {
-        assertTrue(DeckMerge.interleave(emptyList(), limit = 10).isEmpty())
-        assertTrue(DeckMerge.interleave(listOf(emptyList()), limit = 10).isEmpty())
+        assertTrue(interleave(emptyList(), limit = 10).isEmpty())
+        assertTrue(interleave(listOf(emptyList()), limit = 10).isEmpty())
     }
 
     @Test
     fun `l'ordre a l'interieur d'un paquet est preserve`() {
-        val merged = DeckMerge.interleave(
+        val merged = interleave(
             listOf(cards("Maths", 3, 100), cards("Info", 3, 200)),
             limit = 6,
         )

@@ -58,12 +58,11 @@ object DeckSelection {
         decks.filter { it.id in selected }.sumOf { it.dueCount }
 
     /**
-     * Ce qu'il faut reellement interroger. Rien de coche veut dire tous les paquets :
-     * refuser de demarrer serait penible au feu vert.
+     * Les paquets a interroger un par un. Un resultat vide veut dire « tous les paquets,
+     * en une seule requete » : rien de coche au depart, mais aussi une selection qui ne
+     * designe plus que des paquets supprimes depuis. Sans ce filtrage, un identifiant
+     * perime resterait dans les reglages et raccourcirait la session sans rien dire.
      */
-    fun effective(decks: List<DeckInfo>, selected: Set<Long>): Set<Long> {
-        val known = decks.map { it.id }.toSet()
-        val kept = selected intersect known
-        return kept.ifEmpty { known }
-    }
+    fun effective(decks: List<DeckInfo>, selected: Set<Long>): Set<Long> =
+        selected intersect decks.map { it.id }.toSet()
 }

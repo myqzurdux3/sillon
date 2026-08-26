@@ -55,7 +55,6 @@ data class Judgement(
     val verdict: Verdict,
     val ease: Ease,
     val spokenFeedback: String,
-    val missed: List<String>,
     val formulationNote: String?,
     val topic: String?,
 )
@@ -73,6 +72,8 @@ data class SessionStats(
     val correct: Int = 0,
     val skipped: Int = 0,
     val committed: Int = 0,
+    /** Notes qu'AnkiDroid a refusees. Une ecriture perdue en silence ne s'invente pas. */
+    val writeFailures: Int = 0,
 )
 
 enum class WriteMode { JOURNAL_ONLY, WRITE_THROUGH }

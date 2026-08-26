@@ -31,9 +31,14 @@ object VoiceCommandParser {
     )
 
     private val EXACT: List<Pair<Set<String>, VoiceCommand>> = listOf(
-        setOf("encore", "a revoir", "revoir", "rate", "rater", "non") to
-            VoiceCommand.Correct(Ease.AGAIN),
-        setOf("difficile", "dur", "durs", "moyen") to VoiceCommand.Correct(Ease.HARD),
+        setOf(
+            "encore", "a revoir", "revoir", "rate", "rater", "non",
+            // « faux » et « mauvais » manquaient : le plus naturel apres un verdict trop
+            // genereux tombait dans le vide et validait la note proposee.
+            "faux", "mauvais", "nul", "pas bon",
+        ) to VoiceCommand.Correct(Ease.AGAIN),
+        setOf("difficile", "dur", "durs", "moyen", "trop dur", "penible") to
+            VoiceCommand.Correct(Ease.HARD),
         setOf("bien", "correct", "ok", "oui", "bon") to VoiceCommand.Correct(Ease.GOOD),
         setOf("facile", "tres facile", "evident") to VoiceCommand.Correct(Ease.EASY),
         setOf("repete", "repeter", "pardon", "quoi", "redis") to VoiceCommand.Repeat,

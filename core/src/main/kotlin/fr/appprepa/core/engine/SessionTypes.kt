@@ -109,7 +109,10 @@ sealed interface Effect {
         val memory: SessionMemory,
     ) : Effect
     data class Explain(val card: ReviewCard) : Effect
+    /** Ecrit la note dans Anki *et* la porte au journal, succes ou refus. */
     data class Commit(val pending: PendingAnswer) : Effect
+
+    /** Une trace sans ecriture : carte passee, carte a media, note annulee. */
     data class Record(val entry: JournalRecord) : Effect
     data object Finish : Effect
 }
@@ -130,16 +133,19 @@ data class Session(
     val degraded: Boolean = false,
     val stats: SessionStats = SessionStats(),
     val writeMode: WriteMode = WriteMode.JOURNAL_ONLY,
-    val deckIds: Set<Long> = emptySet(),
     val retriedAnswer: Boolean = false,
     /** Echecs d'ecoute consecutifs. Remis a zero des qu'une reponse est entendue. */
     val listenFailures: Int = 0,
     /** Nombre de cartes exploitables chargees au depart. */
     val total: Int = 0,
 ) {
-    /** Rang de la carte en cours, borne au total : « carte 7 sur 32 ». */
+    /**
+     * Rang de la carte en cours : « carte 7 sur 32 ». Deduit de ce qu'il reste dans la
+     * file, et non des compteurs — [SessionStats.skipped] inclut les cartes a media
+     * ecartees au chargement, qui ne font partie ni du total ni du parcours.
+     */
     val position: Int
-        get() = if (total == 0) 0 else (stats.answered + stats.skipped + 1).coerceAtMost(total)
+        get() = if (total == 0) 0 else (total - queue.size).coerceIn(1, total)
 }
 
 data class Reduction(val session: Session, val effects: List<Effect>)

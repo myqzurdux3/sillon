@@ -21,7 +21,7 @@ class RevisitTest {
         CardInFlight(card(id), "question orale $id", listOf("point $id"), 1_000L)
 
     private fun judgement(verdict: Verdict = Verdict.CORRECT) =
-        Judgement(verdict, Ease.fromVerdict(verdict), "retour", emptyList(), null, "theme")
+        Judgement(verdict, Ease.fromVerdict(verdict), "retour", null, "theme")
 
     /** Session sur la carte 2, la note de la carte 1 encore en attente d'ecriture. */
     private fun enCours(state: SessionState) = Session(

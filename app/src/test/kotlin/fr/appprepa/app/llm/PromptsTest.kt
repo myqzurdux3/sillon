@@ -113,4 +113,22 @@ class PromptsTest {
         assertEquals("Que dit le theoreme de Rolle ?", reformulated.question)
         assertEquals(listOf("continuite", "derivabilite"), reformulated.expectedPoints)
     }
+
+    @Test
+    fun `s'arrete au premier objet complet, pas a la derniere accolade`() {
+        val bavard = """
+            Voici : {"verdict":"correct","ease":3,"spoken_feedback":"Oui."}
+            Et si tu veux un exemple : {"verdict":"faux"}
+        """.trimIndent()
+        assertEquals(Verdict.CORRECT, Prompts.parseJudgement(bavard, buttonCount = 4).verdict)
+    }
+
+    @Test
+    fun `une accolade dans le texte parle ne casse pas la lecture`() {
+        val json = """{"verdict":"partiel","ease":2,"spoken_feedback":"L'ensemble {0} compte.",
+                       "topic":"ensembles"}"""
+        val judgement = Prompts.parseJudgement(json, buttonCount = 4)
+        assertEquals(Verdict.PARTIEL, judgement.verdict)
+        assertEquals("L'ensemble {0} compte.", judgement.spokenFeedback)
+    }
 }

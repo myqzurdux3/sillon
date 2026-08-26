@@ -30,7 +30,6 @@ class NominalLoopTest {
         verdict = verdict,
         ease = Ease.fromVerdict(verdict),
         spokenFeedback = "retour parle",
-        missed = emptyList(),
         formulationNote = null,
         topic = "theme",
     )

@@ -139,10 +139,4 @@ class MathSpeechTest {
         assertFalse("delimiteur restant : $spoken", spoken.contains("\\"))
         assertTrue(spoken.startsWith("Une somme vide"))
     }
-
-    @Test
-    fun `dit vrai quand le texte contient des maths`() {
-        assertTrue(MathSpeech.containsMath("""\(x^2\)"""))
-        assertFalse(MathSpeech.containsMath("Théorème des segments emboîtés"))
-    }
 }

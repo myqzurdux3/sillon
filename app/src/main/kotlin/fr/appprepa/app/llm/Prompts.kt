@@ -76,7 +76,7 @@ object Prompts {
             topic : le thème de la carte, deux ou trois mots.
 
             Réponds par :
-            {"verdict":"...","ease":0,"spoken_feedback":"...","missed":["..."],
+            {"verdict":"...","ease":0,"spoken_feedback":"...",
              "formulation_note":null,"topic":"..."}
             """.trimIndent(),
         )
@@ -133,22 +133,46 @@ object Prompts {
             verdict = verdict,
             ease = ease.clampTo(buttonCount),
             spokenFeedback = truncate(feedback),
-            missed = obj["missed"]?.jsonArray
-                ?.mapNotNull { it.jsonPrimitive.contentOrNull }
-                ?: emptyList(),
             formulationNote = obj["formulation_note"]?.jsonPrimitive?.contentOrNull
                 ?.trim()?.takeIf { it.isNotEmpty() && it != "null" },
             topic = obj["topic"]?.jsonPrimitive?.contentOrNull?.trim()?.takeIf { it.isNotEmpty() },
         )
     }
 
-    /** Le modele peut encadrer son JSON de texte ; on recupere le premier objet complet. */
+    /**
+     * Le modele peut encadrer son JSON de texte. On recupere le premier objet reellement
+     * complet, accolades comptees : prendre du premier `{` au dernier `}` embarquerait
+     * tout ce que le modele a pu ecrire apres, une accolade dans sa prose comprise.
+     */
     private fun extractObject(raw: String): JsonObject {
-        val start = raw.indexOf('{')
-        val end = raw.lastIndexOf('}')
-        require(start >= 0 && end > start) { "aucun objet JSON dans la sortie du modele" }
-        return runCatching { json.parseToJsonElement(raw.substring(start, end + 1)) as JsonObject }
+        val span = firstObject(raw)
+        require(span != null) { "aucun objet JSON dans la sortie du modele" }
+        return runCatching { json.parseToJsonElement(span) as JsonObject }
             .getOrElse { throw IllegalArgumentException("JSON illisible : ${it.message}") }
+    }
+
+    /** Les accolades a l'interieur d'une chaine JSON ne comptent pas dans la profondeur. */
+    private fun firstObject(raw: String): String? {
+        val start = raw.indexOf('{').takeIf { it >= 0 } ?: return null
+        var depth = 0
+        var inString = false
+        var escaped = false
+
+        for (i in start until raw.length) {
+            val c = raw[i]
+            when {
+                escaped -> escaped = false
+                c == '\\' && inString -> escaped = true
+                c == '"' -> inString = !inString
+                inString -> Unit
+                c == '{' -> depth++
+                c == '}' -> {
+                    depth--
+                    if (depth == 0) return raw.substring(start, i + 1)
+                }
+            }
+        }
+        return null
     }
 
     /** Coupe a la phrase : un verso de fiche de prepa lu en entier casse le rythme. */

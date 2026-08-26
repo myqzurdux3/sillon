@@ -19,7 +19,7 @@ class TranscriptTraceTest {
         CardInFlight(card(id), "question orale $id", listOf("point $id"), 1_000L)
 
     private fun judgement() =
-        Judgement(Verdict.CORRECT, Ease.GOOD, "retour", emptyList(), null, "theme")
+        Judgement(Verdict.CORRECT, Ease.GOOD, "retour", null, "theme")
 
     @Test
     fun `la reponse parlee est portee jusqu'au journal`() {
@@ -34,7 +34,7 @@ class TranscriptTraceTest {
         val awaiting = ReviewSessionEngine.reduce(verdict.session, Event.SpeechFinished, 4_000L)
         val settled = ReviewSessionEngine.reduce(awaiting.session, Event.HeardNothing, 5_000L)
 
-        val record = settled.effects.filterIsInstance<Effect.Record>().first().entry
+        val record = settled.effects.filterIsInstance<Effect.Commit>().first().pending.record
         assertEquals(
             "le transcript doit arriver intact dans le journal",
             "le theoreme s'applique sur un intervalle ferme",
@@ -50,7 +50,7 @@ class TranscriptTraceTest {
         val awaiting = ReviewSessionEngine.reduce(selfGrade.session, Event.SpeechFinished, 3_000L)
         val settled = ReviewSessionEngine.reduce(awaiting.session, Event.Heard("facile"), 4_000L)
 
-        val record = settled.effects.filterIsInstance<Effect.Record>().first().entry
+        val record = settled.effects.filterIsInstance<Effect.Commit>().first().pending.record
         assertEquals("ma reponse orale", record.transcript)
     }
 

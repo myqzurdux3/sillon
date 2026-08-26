@@ -15,10 +15,17 @@ import kotlinx.serialization.json.Json
 import java.io.File
 
 /** Un objet JSON par ligne : robuste a une ecriture interrompue, lisible tel quel. */
-class JsonlJournal(private val file: File) : Journal {
+class JsonlJournal(
+    private val file: File,
+    /** Au-dela, le journal ne sert plus a rien : on ne relit que la journee ecoulee. */
+    private val retentionDays: Int = RETENTION_DAYS,
+) : Journal {
 
     private val lock = Mutex()
     private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+
+    /** Le nettoyage a lieu une fois par session, pas a chaque ligne ecrite. */
+    private var pruned = false
 
     @Serializable
     private data class Row(
@@ -39,9 +46,29 @@ class JsonlJournal(private val file: File) : Journal {
         withContext(Dispatchers.IO) {
             lock.withLock {
                 file.parentFile?.mkdirs()
+                if (!pruned) {
+                    pruned = true
+                    prune(entry.atMs)
+                }
                 file.appendText(json.encodeToString(entry.toRow()) + "\n")
             }
         }
+    }
+
+    /**
+     * Jette les lignes trop anciennes. Sans cela le fichier grossit sans fin et chaque
+     * ouverture de l'ecran du journal le relit en entier, alors que seule la journee
+     * ecoulee y est affichee.
+     */
+    private fun prune(nowMs: Long) {
+        if (!file.exists()) return
+        val floor = nowMs - retentionDays * 86_400_000L
+        val kept = file.readLines().filter { line ->
+            line.isNotBlank() &&
+                (runCatching { json.decodeFromString<Row>(line).ts }.getOrNull() ?: 0L) >= floor
+        }
+        if (kept.size == file.readLines().count { it.isNotBlank() }) return
+        file.writeText(kept.joinToString("\n", postfix = "\n"))
     }
 
     suspend fun readAll(): List<JournalRecord> = withContext(Dispatchers.IO) {
@@ -57,6 +84,11 @@ class JsonlJournal(private val file: File) : Journal {
     suspend fun today(nowMs: Long): List<JournalRecord> {
         val dayStart = nowMs - (nowMs % 86_400_000L)
         return readAll().filter { it.atMs >= dayStart }
+    }
+
+    companion object {
+        /** Un mois : de quoi relire plusieurs semaines de trajets, pas une annee. */
+        const val RETENTION_DAYS = 30
     }
 
     private fun JournalRecord.toRow() = Row(

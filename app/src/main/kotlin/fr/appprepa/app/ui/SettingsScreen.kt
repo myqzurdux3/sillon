@@ -23,6 +23,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -50,7 +51,7 @@ fun SettingsScreen(
     var writeThrough by remember { mutableStateOf(settings.writeMode == WriteMode.WRITE_THROUGH) }
     var debugMode by remember { mutableStateOf(settings.debugTranscripts) }
     var revealKey by remember { mutableStateOf(false) }
-    var limit by remember { mutableStateOf(settings.cardLimit) }
+    var limit by remember { mutableIntStateOf(settings.cardLimit) }
     var fastJudge by remember { mutableStateOf(settings.fastJudge) }
 
     Column(

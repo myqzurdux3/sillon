@@ -32,7 +32,7 @@ object ReviewSessionEngine {
 
     fun reduce(session: Session, event: Event, nowMs: Long): Reduction = when (event) {
         is Event.Start -> Reduction(
-            session.copy(state = SessionState.Loading, deckIds = event.deckIds),
+            session.copy(state = SessionState.Loading),
             listOf(Effect.LoadCards(event.deckIds, event.limit)),
         )
 
@@ -114,9 +114,12 @@ object ReviewSessionEngine {
                     ?.let { Effect.Reformulate(it, session.memory) }
                 Reduction(
                     session.copy(state = SessionState.Listening(state.inFlight)),
+                    // Le prechargement passe en premier : la boucle execute les effets en
+                    // serie et l'ecoute bloque. Dans l'autre ordre, la reformulation de la
+                    // carte suivante n'aurait pas lieu pendant que l'utilisateur parle.
                     listOfNotNull(
-                        Effect.Listen(ListenKind.ANSWER, ANSWER_TIMEOUT_MS),
                         prefetchEffect,
+                        Effect.Listen(ListenKind.ANSWER, ANSWER_TIMEOUT_MS),
                     ),
                 )
             }
@@ -137,30 +140,39 @@ object ReviewSessionEngine {
                         state.transcript,
                     ),
                 ),
-                listOf(
-                    Effect.Listen(
-                        ListenKind.CORRECTION,
-                        if (state.assessment is Assessment.SelfGrade) {
-                            SELF_GRADE_TIMEOUT_MS
-                        } else {
-                            CORRECTION_TIMEOUT_MS
-                        },
-                    ),
-                ),
+                listOf(Effect.Listen(ListenKind.CORRECTION, correctionTimeout(state.assessment))),
+            )
+
+            // Un enonce qui n'a pas change d'etat — un refus, une repetition — doit rendre
+            // l'oreille. Sans effet, la boucle vide sa file et la session s'arrete en
+            // silence au milieu du trajet.
+            is SessionState.Listening ->
+                Reduction(session, listOf(Effect.Listen(ListenKind.ANSWER, ANSWER_TIMEOUT_MS)))
+
+            is SessionState.AwaitingCorrection -> Reduction(
+                session,
+                listOf(Effect.Listen(ListenKind.CORRECTION, correctionTimeout(state.assessment))),
             )
 
             else -> Reduction(session, emptyList())
         }
 
-    private fun onHeard(session: Session, event: Event.Heard, nowMs: Long): Reduction =
-        when (val state = session.state) {
-            is SessionState.Listening ->
-                onAnswerHeard(session.copy(listenFailures = 0), state, event.transcript, nowMs)
+    /** Dicter sa propre note prend plus de temps que corriger celle qu'on vient d'entendre. */
+    private fun correctionTimeout(assessment: Assessment): Long =
+        if (assessment is Assessment.SelfGrade) SELF_GRADE_TIMEOUT_MS else CORRECTION_TIMEOUT_MS
+
+    private fun onHeard(session: Session, event: Event.Heard, nowMs: Long): Reduction {
+        // Entendre quoi que ce soit prouve que le micro marche, dans n'importe quelle
+        // fenetre : le compteur d'echecs ne doit pas traverser toute la session.
+        val entendu = session.copy(listenFailures = 0)
+        return when (val state = entendu.state) {
+            is SessionState.Listening -> onAnswerHeard(entendu, state, event.transcript, nowMs)
             is SessionState.AwaitingCorrection ->
-                onCorrectionHeard(session, state, event.transcript, nowMs)
-            is SessionState.Revisiting -> onRevisitHeard(session, state, event.transcript, nowMs)
-            else -> Reduction(session, emptyList())
+                onCorrectionHeard(entendu, state, event.transcript, nowMs)
+            is SessionState.Revisiting -> onRevisitHeard(entendu, state, event.transcript, nowMs)
+            else -> Reduction(entendu, emptyList())
         }
+    }
 
     // --- parenthese sur la carte precedente --------------------------------
 
@@ -235,13 +247,22 @@ object ReviewSessionEngine {
         return session.copy(
             pending = session.pending.map {
                 if (it.card.noteId == target.card.noteId && it.card.cardOrd == target.card.cardOrd) {
-                    it.copy(ease = bounded, record = it.record.copy(committedEase = bounded))
+                    it.copy(
+                        ease = bounded,
+                        // En mode journal rien ne part dans Anki : l'annoncer ecrit serait
+                        // un mensonge dans le seul document qui sert a juger l'application.
+                        record = it.record.copy(committedEase = committed(session, bounded)),
+                    )
                 } else {
                     it
                 }
             },
         )
     }
+
+    /** La note reellement ecrite dans Anki, ou `null` quand le mode journal l'interdit. */
+    private fun committed(session: Session, ease: Ease): Ease? =
+        ease.takeIf { session.writeMode == WriteMode.WRITE_THROUGH }
 
     /** Referme la parenthese : la question en cours est reenoncee. */
     private fun resumeAfterRevisit(
@@ -284,6 +305,10 @@ object ReviewSessionEngine {
         VoiceCommand.Revisit -> openRevisit(session, state.inFlight, explaining = false)
         VoiceCommand.RevisitExplain -> openRevisit(session, state.inFlight, explaining = true)
 
+        // « annule » vise toujours la carte precedente, y compris au milieu de la reponse.
+        // L'etat ne bouge pas : la fin de l'enonce rouvre l'ecoute sur la meme question.
+        VoiceCommand.Undo -> dropPending(session, "annulee a la voix")
+
         // Une correction de note n'a pas de sens pendant la reponse : c'est du texte.
         else -> if (session.degraded) {
             speakAnswerForSelfGrade(session, state.inFlight, transcript)
@@ -310,6 +335,10 @@ object ReviewSessionEngine {
     ): Reduction = when (val command = VoiceCommandParser.parse(transcript)) {
         is VoiceCommand.Correct -> settle(session, state, command.ease, nowMs)
 
+        // Redire le verdict, sans le figer : l'etat ne bouge pas, donc la fin de l'enonce
+        // rouvre la meme fenetre de correction.
+        VoiceCommand.Repeat -> Reduction(session, listOf(Effect.Speak(verdictText(state))))
+
         VoiceCommand.Revisit -> openRevisit(session, state.inFlight, explaining = false)
         VoiceCommand.RevisitExplain -> openRevisit(session, state.inFlight, explaining = true)
 
@@ -324,22 +353,43 @@ object ReviewSessionEngine {
         }
 
         // « annule » vise la carte precedente : elle n'est jamais ecrite, elle reste due.
+        // La carte en cours, elle, se fige normalement.
         VoiceCommand.Undo -> {
-            val dropped = session.pending.lastOrNull()
-            val cleared = session.copy(pending = session.pending.dropLast(1))
-            val trace = dropped?.let {
-                listOf(
-                    Effect.Record(
-                        it.record.copy(committedEase = null, note = "annulee a la voix"),
-                    ),
-                )
-            } ?: emptyList()
-            val settled = settle(cleared, state, null, nowMs)
-            Reduction(settled.session, trace + settled.effects)
+            val jetee = dropPending(session, "annulee a la voix")
+            val settled = settle(jetee.session, state, null, nowMs)
+            Reduction(settled.session, jetee.effects + settled.effects)
         }
 
         else -> settle(session, state, null, nowMs)
     }
+
+    /**
+     * Jette la note en attente sans rien ecrire dans Anki : la carte reste due. La trace
+     * part au journal, sinon l'annulation ne laisserait rien a relire le soir.
+     *
+     * L'annulation est toujours dite a voix haute, y compris quand il n'y avait rien a
+     * annuler : c'est cet enonce qui, une fois termine, rend l'oreille. Un effet muet
+     * viderait la file de la boucle et arreterait la session sans un mot.
+     */
+    private fun dropPending(session: Session, why: String): Reduction {
+        val dropped = session.pending.lastOrNull()
+            ?: return Reduction(session, listOf(Effect.Speak("Il n'y a rien à annuler.")))
+        return Reduction(
+            session.copy(pending = session.pending.dropLast(1)),
+            listOf(
+                Effect.Record(dropped.record.copy(committedEase = null, note = why)),
+                Effect.Speak("J'annule la note précédente."),
+            ),
+        )
+    }
+
+    /** Ce qui a ete annonce apres la reponse, pour pouvoir le redire tel quel. */
+    private fun verdictText(state: SessionState.AwaitingCorrection): String =
+        when (val assessment = state.assessment) {
+            is Assessment.Judged ->
+                "${assessment.judgement.spokenFeedback} Je mets ${label(assessment.judgement.ease)}."
+            is Assessment.SelfGrade -> selfGradeText(assessment.answerText)
+        }
 
     private fun onHeardNothing(session: Session, nowMs: Long): Reduction =
         when (val state = session.state) {
@@ -358,7 +408,6 @@ object ReviewSessionEngine {
                         ease = Ease.AGAIN,
                         spokenFeedback = "Pas de réponse. " +
                             MathSpeech.verbalize(state.inFlight.card.answer),
-                        missed = emptyList(),
                         formulationNote = null,
                         topic = null,
                     )
@@ -431,7 +480,6 @@ object ReviewSessionEngine {
             verdict = Verdict.FAUX,
             ease = Ease.AGAIN,
             spokenFeedback = event.text,
-            missed = emptyList(),
             formulationNote = null,
             topic = null,
         )
@@ -489,13 +537,12 @@ object ReviewSessionEngine {
                     transcript,
                 ),
             ),
-            listOf(
-                Effect.Speak(
-                    MathSpeech.verbalize(inFlight.card.answer) +
-                        " Tu mets à revoir, difficile, bien ou facile ?",
-                ),
-            ),
+            listOf(Effect.Speak(selfGradeText(inFlight.card.answer))),
         )
+
+    /** Le verso enonce, suivi de la demande de note. Redit tel quel par « repete ». */
+    private fun selfGradeText(answer: String): String =
+        MathSpeech.verbalize(answer) + " Tu mets à revoir, difficile, bien ou facile ?"
 
     private fun onJudged(session: Session, event: Event.Judged, nowMs: Long): Reduction {
         val state = session.state as? SessionState.Judging ?: return Reduction(session, emptyList())
@@ -539,7 +586,7 @@ object ReviewSessionEngine {
             question = state.inFlight.question,
             transcript = state.transcript,
             proposedEase = judgement?.ease,
-            committedEase = if (session.writeMode == WriteMode.WRITE_THROUGH) ease else null,
+            committedEase = committed(session, ease),
             verdict = judgement?.verdict,
             mode = session.writeMode,
         )
@@ -553,9 +600,9 @@ object ReviewSessionEngine {
         )
         val overflow = queued.dropLast(MAX_PENDING)
         val kept = queued.takeLast(MAX_PENDING)
-        val commitEffects = overflow.flatMap {
-            listOf(Effect.Commit(it), Effect.Record(it.record))
-        }
+        // [Effect.Commit] ecrit et journalise d'un seul geste : c'est la seule facon que
+        // le journal dise ce qui est reellement parti dans Anki, refus compris.
+        val commitEffects = overflow.map { Effect.Commit(it) }
 
         val memory = judgement?.let { SessionMemoryBuilder.absorb(session.memory, it) }
             ?: session.memory
@@ -567,7 +614,7 @@ object ReviewSessionEngine {
                 answered = session.stats.answered + 1,
                 correct = session.stats.correct +
                     if (judgement?.verdict == Verdict.CORRECT) 1 else 0,
-                committed = session.stats.committed + commitEffects.count { it is Effect.Commit },
+                committed = session.stats.committed + commitEffects.size,
             ),
         )
 
@@ -581,35 +628,26 @@ object ReviewSessionEngine {
 
         val rest = session.queue.drop(1)
 
-        if (session.degraded) {
-            val spoken = MathSpeech.verbalize(next.question)
-            val inFlight = CardInFlight(next, spoken, emptyList(), nowMs)
-            return Reduction(
-                session.copy(
-                    state = SessionState.Asking(inFlight),
-                    queue = rest,
-                    retriedAnswer = false,
-                ),
-                carried + Effect.Speak(spoken),
-            )
-        }
+        // Le mode degrade ne vaut que pour la carte ou la panne s'est produite. Chaque
+        // nouvelle carte retente le LLM : sans cela, une coupure de dix secondes
+        // condamnerait tout le reste du trajet a la lecture brute. L'echec est immediat
+        // quand le reseau est vraiment coupe, et borne par le delai du client sinon.
+        val repart = session.copy(degraded = false, queue = rest, retriedAnswer = false)
 
         val ready = session.prefetch?.takeIf { session.prefetchFor == next.noteId }
         return if (ready != null) {
             val inFlight = CardInFlight(next, ready.question, ready.expectedPoints, nowMs)
             Reduction(
-                session.copy(
+                repart.copy(
                     state = SessionState.Asking(inFlight),
-                    queue = rest,
                     prefetch = null,
                     prefetchFor = null,
-                    retriedAnswer = false,
                 ),
                 carried + Effect.Speak(ready.question),
             )
         } else {
             Reduction(
-                session.copy(state = SessionState.Preparing(next), queue = rest),
+                repart.copy(state = SessionState.Preparing(next)),
                 carried + Effect.Reformulate(next, session.memory),
             )
         }
@@ -621,11 +659,9 @@ object ReviewSessionEngine {
         nowMs: Long,
         carried: List<Effect> = emptyList(),
     ): Reduction {
-        val flush = session.pending.flatMap {
-            listOf(Effect.Commit(it), Effect.Record(it.record))
-        }
+        val flush = session.pending.map { Effect.Commit(it) }
         val stats = session.stats.copy(
-            committed = session.stats.committed + flush.count { it is Effect.Commit },
+            committed = session.stats.committed + flush.size,
         )
         return Reduction(
             session.copy(state = SessionState.Finished(stats), pending = emptyList(), stats = stats),

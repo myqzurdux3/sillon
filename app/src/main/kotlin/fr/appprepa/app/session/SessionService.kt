@@ -1,12 +1,14 @@
 package fr.appprepa.app.session
 
 import android.app.NotificationChannel
+import android.app.PendingIntent
 import android.app.NotificationManager
 import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
+import fr.appprepa.app.R
 import fr.appprepa.app.anki.AnkiAvailability
 import fr.appprepa.app.anki.AnkiDroidGateway
 import fr.appprepa.app.anki.AnkiStatus
@@ -14,6 +16,7 @@ import fr.appprepa.app.journal.JsonlJournal
 import fr.appprepa.app.llm.AnthropicTutor
 import fr.appprepa.app.settings.SettingsStore
 import fr.appprepa.app.voice.AndroidListener
+import fr.appprepa.app.ui.MainActivity
 import fr.appprepa.app.voice.AndroidSpeaker
 import fr.appprepa.core.engine.SessionLoop
 import fr.appprepa.core.ports.Clock
@@ -31,7 +34,15 @@ import java.io.File
  */
 class SessionService : Service() {
 
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    /**
+     * Un seul thread pour toute la session. La boucle du moteur et ses prechargements
+     * poussent leurs evenements dans la meme file, qui n'est pas concurrente : deux
+     * threads y perdraient des evenements au hasard. Rien n'y bloque le processeur —
+     * reseau, disque et micro suspendent tous en rendant la place.
+     */
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    private val scope =
+        CoroutineScope(SupervisorJob() + Dispatchers.Default.limitedParallelism(1))
     private var job: Job? = null
     private var speaker: AndroidSpeaker? = null
     private var loop: SessionLoop? = null
@@ -45,7 +56,9 @@ class SessionService : Service() {
         }
         startForeground(NOTIFICATION_ID, notification("Session de révision en cours"))
         if (job == null) job = scope.launch { runSession() }
-        return START_STICKY
+        // Surtout pas START_STICKY : le systeme relancerait le service avec un intent nul
+        // apres l'avoir tue, et une session demarrerait toute seule, micro compris.
+        return START_NOT_STICKY
     }
 
     private suspend fun runSession() {
@@ -85,7 +98,8 @@ class SessionService : Service() {
             return
         }
 
-        val guard = AudioFocusGuard(this)
+        // Une perte definitive du focus arrete la session au lieu de la figer.
+        val guard = AudioFocusGuard(this) { loop?.requestStop() }
 
         val session = SessionLoop(
             gateway = AnkiDroidGateway(contentResolver),
@@ -159,9 +173,17 @@ class SessionService : Service() {
 
     private fun notification(text: String) =
         NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("Anki Voix")
+            .setContentTitle(getString(R.string.app_name))
             .setContentText(text)
-            .setSmallIcon(android.R.drawable.ic_btn_speak_now)
+            .setSmallIcon(R.mipmap.ic_launcher)
+            .setContentIntent(
+                PendingIntent.getActivity(
+                    this,
+                    0,
+                    Intent(this, MainActivity::class.java),
+                    PendingIntent.FLAG_IMMUTABLE,
+                ),
+            )
             .setOngoing(true)
             .build()
 

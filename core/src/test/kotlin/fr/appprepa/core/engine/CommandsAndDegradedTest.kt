@@ -18,7 +18,7 @@ class CommandsAndDegradedTest {
         CardInFlight(card(id), "question orale $id", listOf("point $id"), 1_000L)
 
     private fun judgement(verdict: Verdict = Verdict.CORRECT) = Judgement(
-        verdict, Ease.fromVerdict(verdict), "retour", emptyList(), null, "theme",
+        verdict, Ease.fromVerdict(verdict), "retour", null, "theme",
     )
 
     private fun listening(id: Long, queue: List<ReviewCard> = emptyList()) =
@@ -177,15 +177,16 @@ class CommandsAndDegradedTest {
     }
 
     @Test
-    fun `en mode degrade la carte suivante est lue telle quelle sans appel LLM`() {
+    fun `en mode degrade la carte en cours est lue telle quelle sans appel LLM`() {
         val session = Session(
-            state = SessionState.AwaitingCorrection(inFlight(1), Assessment.SelfGrade("verso 1")),
-            degraded = true,
-            queue = listOf(card(2)),
+            state = SessionState.Preparing(card(2)),
+            queue = emptyList(),
         )
-        val result = ReviewSessionEngine.reduce(session, Event.Heard("facile"), 5_000L)
+        val result = ReviewSessionEngine.reduce(session, Event.TutorFailed("reseau"), 5_000L)
+
         assertTrue(result.effects.none { it is Effect.Reformulate })
         assertTrue(result.effects.contains(Effect.Speak("recto 2")))
+        assertTrue("la panne vaut pour cette carte", result.session.degraded)
     }
 
     @Test

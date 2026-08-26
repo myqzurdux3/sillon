@@ -1,7 +1,11 @@
 # Révision Anki vocale en voiture — Design
 
-Date : 2026-08-26
-Statut : validé (approche A retenue par l'utilisateur)
+Date : 2026-08-26 · révisé après audit le 2026-08-26
+Statut : implémenté
+
+Ce document dit **pourquoi** l'application est faite ainsi. Il ne contient pas de code :
+le code est la seule source de vérité sur le *comment*, et un document qui le recopie
+devient faux au premier commit.
 
 ## 1. Problème
 
@@ -277,12 +281,16 @@ Format du journal, un objet JSON par ligne :
 
 | Situation | Comportement |
 |---|---|
-| Réseau perdu | Annonce « réseau perdu, je passe en lecture simple », puis mode dégradé : le recto est lu tel quel, l'utilisateur répond, le verso est lu, l'utilisateur dicte lui-même sa note. La session continue. Retour au mode normal dès que le réseau revient |
+| Réseau perdu | Mode dégradé : le recto est lu tel quel, l'utilisateur répond, le verso est lu, l'utilisateur dicte lui-même sa note. Le mode dégradé ne vaut que **pour la carte où la panne a eu lieu** : chaque nouvelle carte retente le modèle, donc la session revient d'elle-même au mode normal dès le réseau revenu. Sans cette reprise, une coupure de dix secondes condamnerait tout le trajet |
 | Transcript vide ou silence | Une relance (« je t'écoute »), puis note 1 et carte suivante |
 | Appel LLM en échec ou JSON invalide | Un réessai, puis bascule sur le mode dégradé ci-dessus pour cette carte |
 | AnkiDroid absent, permission refusée, collection verrouillée | Échec immédiat et explicite au démarrage, annoncé vocalement et affiché — jamais en cours de trajet |
 | Aucune carte due | Annonce et fin propre |
-| Perte de focus audio | Pause, puis reprise à la carte en cours |
+| Perte de focus audio transitoire | Pause à la frontière d'une phrase, puis reprise à la carte en cours |
+| Perte de focus audio définitive | Fin propre de la session : le focus ne reviendra pas, et attendre une reprise qui n'arrive jamais figerait la session sans un mot |
+| Micro en panne | Annoncé, une relance, puis arrêt. Une panne technique n'est jamais confondue avec un silence : la confusion noterait tout le trajet « à revoir » |
+| Écriture refusée par AnkiDroid | Comptée, portée au journal avec sa raison, et annoncée dans le bilan de fin. Une note perdue en silence rendrait le journal inutilisable — or c'est lui qui sert à décider d'activer l'écriture réelle |
+| Appel au modèle qui pend | Délai borné côté client ; au-delà, c'est un échec, donc le mode dégradé. Une requête qui pend ne rend jamais la main |
 
 Le mode dégradé mérite d'être souligné : il transforme la panne réseau en simple perte de
 confort, pas en fin de session.
@@ -303,7 +311,10 @@ Le service de premier plan garantit que la session survit à l'extinction de l'�
   une session de bout en bout jouée en millisecondes, sans émulateur ni micro.
 - **`:app`, tests instrumentés** — `AnkiDroidGateway` contre un vrai AnkiDroid installé sur
   l'émulateur avec un deck de test : lecture des cartes dues, écriture d'une note,
-  vérification que la carte n'est plus due.
+  vérification que la carte n'est plus due. Un test y vérifie aussi que la table
+  `schedule` expose bien `button_count` et `media_files` : sans eux, une carte à image
+  passerait pour une carte de texte et serait énoncée à vide — une dégradation
+  silencieuse, donc à transformer en échec visible.
 - **Chemin de débogage** — un mode qui injecte des transcripts au clavier au lieu du micro,
   puisque l'émulateur n'a pas d'entrée audio réaliste. Indispensable pour itérer sur les
   prompts sans monter en voiture.
@@ -336,8 +347,12 @@ Vérifié sur les vingt premières cartes dues du deck réel : aucun backslash n
 ## 15. Hors périmètre v1
 
 Écartés délibérément : application Android Auto dédiée, speech-to-speech temps réel,
-interruption de la parole de l'IA, mot d'éveil, mélange de plusieurs decks dans une même
-session, cartes à image ou à son, édition de cartes à la voix, statistiques élaborées.
+interruption de la parole de l'IA, mot d'éveil, cartes à image ou à son, édition de cartes
+à la voix, statistiques élaborées.
+
+Le mélange de plusieurs paquets dans une même session figurait ici ; il a été ajouté
+depuis. Les paquets cochés se révisent entrelacés, une carte à la fois, parce qu'un trajet
+coupé en deux blocs thématiques révise mal.
 
 ## 16. Risques ouverts
 
@@ -349,6 +364,7 @@ session, cartes à image ou à son, édition de cartes à la voix, statistiques 
    jugement doit rester tolérant à la transcription approximative — c'est une consigne
    explicite du prompt.
 3. **Verrouillage de la collection.** Si AnkiDroid est ouvert au premier plan, l'accès
-   concurrent peut échouer. À vérifier sur appareil réel.
+   concurrent peut échouer. Le refus est désormais compté, journalisé et annoncé en fin
+   de session ; reste à mesurer sa fréquence à l'usage.
 4. **Longueur des versos.** Les fiches de prépa sont verbeuses ; le plafonnement du retour
    oral est une contrainte de rythme, pas un détail cosmétique.

@@ -136,4 +136,30 @@ class FullSessionTest {
         val stats = loop(emptyList(), mutableListOf()).run(emptySet(), 30)
         assertEquals(0, stats.answered)
     }
+
+    @Test
+    fun `une ecriture refusee par anki est dite dans le journal, pas passee sous silence`() =
+        runTest {
+            val cards = listOf(card(1), card(2))
+            val journal = FakeJournal()
+            val gateway = object : FakeAnkiGateway(cards) {
+                override suspend fun answer(
+                    noteId: Long,
+                    cardOrd: Int,
+                    ease: Ease,
+                    timeTakenMs: Long,
+                ) = throw IllegalStateException("collection verrouillee")
+            }
+            val script = mutableListOf<String?>("reponse 1", null, "reponse 2", null)
+            val stats = loop(cards, script, gateway = gateway, journal = journal)
+                .run(emptySet(), 30)
+
+            assertEquals("le refus doit etre compte", 2, stats.writeFailures)
+            val notes = journal.entries.mapNotNull { it.note }
+            assertTrue("le journal doit dire le refus : $notes", notes.all { "refuse" in it })
+            assertTrue(
+                "une note refusee n'est pas une note ecrite",
+                journal.entries.all { it.committedEase == null },
+            )
+        }
 }

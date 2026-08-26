@@ -2,6 +2,7 @@ package fr.appprepa.app.ui
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -19,6 +20,8 @@ import fr.appprepa.app.settings.SettingsStore
 import fr.appprepa.core.deck.DeckInfo
 import fr.appprepa.core.deck.DeckSelection
 import fr.appprepa.core.model.JournalRecord
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.io.File
 
 private enum class Screen { HOME, SETTINGS, DECKS, JOURNAL }
@@ -61,13 +64,30 @@ class MainActivity : ComponentActivity() {
                         entries = journal.today(System.currentTimeMillis())
                     }
                     // Les compteurs changent a chaque revision : on les relit a l'ouverture.
+                    // Interroger AnkiDroid traverse deux processus : cela se fait ici, une
+                    // fois par ouverture d'ecran, et jamais dans le corps d'un composable.
                     if (screen == Screen.DECKS || screen == Screen.SETTINGS) {
-                        decks = runCatching {
-                            AnkiDroidGateway(contentResolver).decks()
-                        }.getOrDefault(emptyList())
+                        decks = withContext(Dispatchers.IO) {
+                            runCatching { AnkiDroidGateway(contentResolver).decks() }
+                                .getOrDefault(emptyList())
+                        }
+                        if (ankiMessage.isBlank()) {
+                            ankiMessage = withContext(Dispatchers.IO) {
+                                AnkiAvailability.message(AnkiAvailability.check(this@MainActivity))
+                            }
+                        }
                     }
                     if (screen == Screen.HOME) {
                         debugTranscripts = settings.debugTranscripts
+                    }
+                }
+
+                // Le retour systeme remonte d'un ecran ; il ne quitte l'application que
+                // depuis l'accueil.
+                BackHandler(enabled = screen != Screen.HOME) {
+                    screen = when (screen) {
+                        Screen.DECKS, Screen.JOURNAL -> Screen.SETTINGS
+                        else -> Screen.HOME
                     }
                 }
 
@@ -81,9 +101,7 @@ class MainActivity : ComponentActivity() {
 
                     Screen.SETTINGS -> SettingsScreen(
                         settings = settings,
-                        ankiMessage = ankiMessage.ifBlank {
-                            AnkiAvailability.message(AnkiAvailability.check(this@MainActivity))
-                        },
+                        ankiMessage = ankiMessage,
                         deckSummary = deckSummary(decks, selectedDecks),
                         onOpenDecks = { screen = Screen.DECKS },
                         onOpenJournal = { screen = Screen.JOURNAL },

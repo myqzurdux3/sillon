@@ -12,6 +12,7 @@ import fr.appprepa.core.ports.ListenResult
 import fr.appprepa.core.ports.Listener
 import kotlinx.coroutines.suspendCancellableCoroutine
 import java.util.Locale
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.coroutines.resume
 
 /**
@@ -50,11 +51,15 @@ class AndroidListener(private val context: Context) : Listener {
                 }
 
                 val recognizer = SpeechRecognizer.createSpeechRecognizer(context)
-                var settled = false
+                val settled = AtomicBoolean(false)
+                lateinit var expiry: Runnable
 
+                // `SpeechRecognizer` n'existe que sur le thread principal, y compris pour
+                // mourir. L'annulation, elle, arrive du thread de la boucle : elle repasse
+                // donc par le Handler au lieu de detruire le service depuis ailleurs.
                 fun settle(result: ListenResult) {
-                    if (settled) return
-                    settled = true
+                    if (!settled.compareAndSet(false, true)) return
+                    main.removeCallbacks(expiry)
                     runCatching { recognizer.destroy() }
                     if (continuation.isActive) continuation.resume(result)
                 }
@@ -105,8 +110,9 @@ class AndroidListener(private val context: Context) : Listener {
                     )
                 }
 
-                main.postDelayed({ settle(ListenResult.Silence) }, timeoutMs)
-                continuation.invokeOnCancellation { settle(ListenResult.Silence) }
+                expiry = Runnable { settle(ListenResult.Silence) }
+                main.postDelayed(expiry, timeoutMs)
+                continuation.invokeOnCancellation { main.post { settle(ListenResult.Silence) } }
                 recognizer.startListening(intent)
             }
         }

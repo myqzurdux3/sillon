@@ -17,7 +17,7 @@ import fr.appprepa.core.ports.Listener
 import fr.appprepa.core.ports.Speaker
 import fr.appprepa.core.ports.Tutor
 
-class FakeAnkiGateway(private val cards: List<ReviewCard>) : AnkiGateway {
+open class FakeAnkiGateway(private val cards: List<ReviewCard>) : AnkiGateway {
     val answered = mutableListOf<Triple<Long, Int, Ease>>()
     var lastDeckIds: Set<Long> = emptySet()
         private set
@@ -29,7 +29,7 @@ class FakeAnkiGateway(private val cards: List<ReviewCard>) : AnkiGateway {
         } else {
             cards.filter { deckIds.contains(deckIdOf(it.deckName)) }
         }
-        return DeckMerge.interleave(listOf(retenues), limit)
+        return DeckMerge.interleave(listOf(retenues), limit) { it.noteId to it.cardOrd }
     }
 
     override suspend fun answer(noteId: Long, cardOrd: Int, ease: Ease, timeTakenMs: Long) {
@@ -64,7 +64,7 @@ class FakeTutor(
     ): Judgement {
         if (card.noteId in failOn) error("panne simulee")
         val verdict = verdicts[card.noteId] ?: Verdict.CORRECT
-        return Judgement(verdict, Ease.fromVerdict(verdict), "retour", emptyList(), null, "theme")
+        return Judgement(verdict, Ease.fromVerdict(verdict), "retour", null, "theme")
     }
 
     override suspend fun explain(card: ReviewCard) = "explication de ${card.noteId}"

@@ -3,8 +3,11 @@ package fr.appprepa.app.anki
 import android.content.ContentResolver
 import android.content.ContentValues
 import android.net.Uri
+import androidx.core.net.toUri
 import fr.appprepa.core.deck.DeckInfo
 import fr.appprepa.core.deck.DeckMerge
+import fr.appprepa.core.deck.DeckSelection
+import fr.appprepa.core.text.Html
 import fr.appprepa.core.model.Ease
 import fr.appprepa.core.model.ReviewCard
 import fr.appprepa.core.ports.AnkiGateway
@@ -22,26 +25,53 @@ import org.json.JSONArray
 class AnkiDroidGateway(private val resolver: ContentResolver) : AnkiGateway {
 
     /**
-     * Chaque paquet est interroge separement, puis les resultats sont entrelaces.
+     * Chaque paquet coche est interroge separement, puis les resultats sont entrelaces.
      * Interroger un parent en esperant qu'il ramene ses enfants reposerait sur une
      * semantique que la documentation d'AnkiDroid ne precise pas.
+     *
+     * Le texte des cartes n'est lu **qu'apres** l'entrelacement : la table `schedule` ne
+     * porte que des identifiants, et chaque recto coute une requete de plus. Lire avant
+     * de trancher revenait a payer `paquets x limite` allers-retours pour n'en garder
+     * que `limite`.
      */
     override suspend fun dueCards(deckIds: Set<Long>, limit: Int): List<ReviewCard> =
         withContext(Dispatchers.IO) {
-            val names = deckNamesBlocking()
-            val perDeck = if (deckIds.isEmpty()) {
-                listOf(querySchedule(null, limit, names))
+            val decks = decksBlocking()
+            val names = decks.associate { it.id to it.name }
+
+            // Un identifiant de paquet supprime depuis le dernier reglage ne doit pas
+            // consommer une requete pour rien, ni raccourcir la session en silence.
+            val retenus = DeckSelection.effective(decks, deckIds)
+            val perDeck = if (retenus.isEmpty()) {
+                listOf(querySchedule(null, limit))
             } else {
-                deckIds.map { querySchedule(it, limit, names) }
+                retenus.map { querySchedule(it, limit) }
             }
-            DeckMerge.interleave(perDeck, limit)
+
+            DeckMerge.interleave(perDeck, limit) { it.noteId to it.ord }
+                .mapNotNull { due ->
+                    val text = cardText(due.noteId, due.ord) ?: return@mapNotNull null
+                    ReviewCard(
+                        noteId = due.noteId,
+                        cardOrd = due.ord,
+                        deckName = names[text.deckId] ?: "",
+                        question = text.question,
+                        answer = text.answer,
+                        buttonCount = due.buttonCount,
+                        hasMedia = due.hasMedia,
+                    )
+                }
         }
 
-    private fun querySchedule(
-        deckId: Long?,
-        limit: Int,
-        deckNames: Map<Long, String>,
-    ): List<ReviewCard> {
+    /** Une ligne de la table `schedule` : des identifiants, pas encore de texte. */
+    private data class DueCard(
+        val noteId: Long,
+        val ord: Int,
+        val buttonCount: Int,
+        val hasMedia: Boolean,
+    )
+
+    private fun querySchedule(deckId: Long?, limit: Int): List<DueCard> {
         val selection = if (deckId != null) "limit=?, deckID=?" else "limit=?"
         val args = if (deckId != null) {
             arrayOf(limit.toString(), deckId.toString())
@@ -49,36 +79,31 @@ class AnkiDroidGateway(private val resolver: ContentResolver) : AnkiGateway {
             arrayOf(limit.toString())
         }
 
-        return resolver.query(SCHEDULE_URI, null, selection, args, null).use { cursor ->
+        // La projection est demandee explicitement : c'est ce qui garantit que
+        // `button_count` et `media_files` sont bien la. S'ils ne l'etaient pas, une carte
+        // a image passerait pour une carte de texte et serait lue a vide. Le repli sur la
+        // projection par defaut evite qu'une version d'AnkiDroid inattendue fasse
+        // echouer la lecture ; le test instrumente verifie que le repli ne sert pas.
+        val cursor = runCatching {
+            resolver.query(SCHEDULE_URI, SCHEDULE_PROJECTION, selection, args, null)
+        }.getOrElse { resolver.query(SCHEDULE_URI, null, selection, args, null) }
+
+        return cursor
+            .use { cursor ->
                 if (cursor == null) return emptyList()
                 buildList {
                     while (cursor.moveToNext()) {
-                        val noteId = cursor.getLong(cursor.getColumnIndexOrThrow(NOTE_ID))
-                        val ord = cursor.getInt(cursor.getColumnIndexOrThrow(CARD_ORD))
-                        val buttons = cursor.getColumnIndex(BUTTON_COUNT)
-                            .takeIf { it >= 0 }
-                            ?.let { cursor.getInt(it) }
-                            ?: 4
-                        val hasMedia = cursor.getColumnIndex(MEDIA_FILES)
-                            .takeIf { it >= 0 }
-                            ?.let { hasMediaFiles(cursor.getString(it)) }
-                            ?: false
-
-                        val text = cardText(noteId, ord) ?: continue
                         add(
-                            ReviewCard(
-                                noteId = noteId,
-                                cardOrd = ord,
-                                deckName = deckNames[text.deckId] ?: "",
-                                question = text.question,
-                                answer = text.answer,
-                                buttonCount = buttons,
-                                hasMedia = hasMedia,
+                            DueCard(
+                                noteId = cursor.getLong(cursor.getColumnIndexOrThrow(NOTE_ID)),
+                                ord = cursor.getInt(cursor.getColumnIndexOrThrow(CARD_ORD)),
+                                buttonCount = cursor.int(BUTTON_COUNT) ?: DEFAULT_BUTTONS,
+                                hasMedia = hasMediaFiles(cursor.string(MEDIA_FILES)),
                             ),
                         )
                     }
                 }
-        }
+            }
     }
 
     override suspend fun answer(noteId: Long, cardOrd: Int, ease: Ease, timeTakenMs: Long) {
@@ -107,17 +132,11 @@ class AnkiDroidGateway(private val resolver: ContentResolver) : AnkiGateway {
                 while (cursor.moveToNext()) {
                     val id = cursor.getLong(cursor.getColumnIndexOrThrow(DECK_ID))
                     val name = cursor.getString(cursor.getColumnIndexOrThrow(DECK_NAME)) ?: ""
-                    val due = cursor.getColumnIndex(DECK_COUNTS)
-                        .takeIf { it >= 0 }
-                        ?.let { sumCounts(cursor.getString(it)) }
-                        ?: 0
+                    val due = sumCounts(cursor.string(DECK_COUNTS))
                     add(DeckInfo(id, name, due))
                 }
             }
         }
-
-    private fun deckNamesBlocking(): Map<Long, String> =
-        decksBlocking().associate { it.id to it.name }
 
     /** « [0,0,18] » vaut dix-huit cartes a faire. */
     private fun sumCounts(raw: String?): Int {
@@ -138,23 +157,22 @@ class AnkiDroidGateway(private val resolver: ContentResolver) : AnkiGateway {
     private fun cardText(noteId: Long, ord: Int): CardText? {
         val uri = Uri.withAppendedPath(NOTES_URI, "$noteId/cards/$ord")
         val projection = arrayOf(
-            NOTE_ID, CARD_ORD, CARD_DECK_ID,
+            NOTE_ID, CARD_ORD, DECK_ID,
             QUESTION, ANSWER, QUESTION_SIMPLE, ANSWER_SIMPLE, ANSWER_PURE,
         )
         return resolver.query(uri, projection, null, null, null).use { cursor ->
             if (cursor == null || !cursor.moveToFirst()) return null
             CardText(
-                question = stripHtml(
+                question = Html.strip(
                     cursor.string(QUESTION_SIMPLE) ?: cursor.string(QUESTION).orEmpty(),
                 ),
-                answer = stripHtml(
+                answer = Html.strip(
                     cursor.string(ANSWER_PURE)
                         ?: cursor.string(ANSWER_SIMPLE)
                         ?: cursor.string(ANSWER).orEmpty(),
                 ),
-                deckId = cursor.getColumnIndex(CARD_DECK_ID)
-                    .takeIf { it >= 0 }
-                    ?.let { cursor.getLong(it) }
+                deckId = cursor.int(DECK_ID)?.toLong()
+                    ?: cursor.string(DECK_ID)?.toLongOrNull()
                     ?: 0L,
             )
         }
@@ -163,20 +181,8 @@ class AnkiDroidGateway(private val resolver: ContentResolver) : AnkiGateway {
     private fun android.database.Cursor.string(column: String): String? =
         getColumnIndex(column).takeIf { it >= 0 }?.let { getString(it) }?.takeIf { it.isNotBlank() }
 
-    /**
-     * Filet de securite : meme `question_simple` peut contenir des balises residuelles,
-     * et une balise lue a voix haute rend la question incomprehensible.
-     */
-    private fun stripHtml(raw: String): String = raw
-        .replace(Regex("<br\\s*/?>|</div>|</p>", RegexOption.IGNORE_CASE), " ")
-        .replace(Regex("<[^>]*>"), "")
-        .replace("&nbsp;", " ")
-        .replace("&amp;", "&")
-        .replace("&lt;", "<")
-        .replace("&gt;", ">")
-        .replace("&quot;", "\"")
-        .replace(Regex("\\s+"), " ")
-        .trim()
+    private fun android.database.Cursor.int(column: String): Int? =
+        getColumnIndex(column).takeIf { it >= 0 }?.let { getInt(it) }
 
     /** `media_files` est un JSONArray serialise ; vide ou absent veut dire pas de media. */
     private fun hasMediaFiles(raw: String?): Boolean {
@@ -188,7 +194,7 @@ class AnkiDroidGateway(private val resolver: ContentResolver) : AnkiGateway {
         const val AUTHORITY = "com.ichi2.anki.flashcards"
         const val PERMISSION = "com.ichi2.anki.permission.READ_WRITE_DATABASE"
 
-        private val AUTHORITY_URI: Uri = Uri.parse("content://$AUTHORITY")
+        private val AUTHORITY_URI: Uri = "content://$AUTHORITY".toUri()
         val SCHEDULE_URI: Uri = Uri.withAppendedPath(AUTHORITY_URI, "schedule")
         val NOTES_URI: Uri = Uri.withAppendedPath(AUTHORITY_URI, "notes")
         val DECKS_URI: Uri = Uri.withAppendedPath(AUTHORITY_URI, "decks")
@@ -199,12 +205,18 @@ class AnkiDroidGateway(private val resolver: ContentResolver) : AnkiGateway {
         private const val MEDIA_FILES = "media_files"
         private const val EASE = "answer_ease"
         private const val TIME_TAKEN = "time_taken"
+        /** Le provider tolere une colonne inconnue, mais pas une projection muette. */
+        private val SCHEDULE_PROJECTION =
+            arrayOf(NOTE_ID, CARD_ORD, BUTTON_COUNT, MEDIA_FILES)
+
+        /** Quand la carte ne dit pas son nombre de boutons, quatre est le cas courant. */
+        private const val DEFAULT_BUTTONS = 4
+
         private const val QUESTION = "question"
         private const val ANSWER = "answer"
         private const val QUESTION_SIMPLE = "question_simple"
         private const val ANSWER_SIMPLE = "answer_simple"
         private const val ANSWER_PURE = "answer_pure"
-        private const val CARD_DECK_ID = "deck_id"
         private const val DECK_ID = "deck_id"
         private const val DECK_NAME = "deck_name"
         private const val DECK_COUNTS = "deck_count"

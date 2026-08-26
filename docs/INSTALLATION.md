@@ -17,15 +17,12 @@ Depuis le dossier du projet, sur un poste avec le SDK Android :
 
 ```bash
 export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
-./gradlew :app:assembleRelease
-```
-
-L'APK sort dans `app/build/outputs/apk/release/`. Il n'est pas signé : pour l'installer
-sur ton téléphone, construis plutôt la variante de développement, déjà signée :
-
-```bash
 ./gradlew :app:assembleDebug
 ```
+
+L'APK sort dans `app/build/outputs/apk/debug/`. C'est la variante à installer : elle est
+signée avec la clé de développement d'Android. `assembleRelease` produit un APK plus
+petit mais **non signé**, donc non installable tel quel.
 
 ## 2. Installer
 
@@ -45,13 +42,14 @@ Au premier lancement, Sillon les demande toutes les trois d'un coup :
 | Notifications | garder la session vivante écran éteint |
 | Accès à la collection AnkiDroid | lire les cartes dues et écrire les notes |
 
-Si la troisième n'apparaît pas, c'est qu'AnkiDroid n'est pas installé. L'écran d'accueil
-de Sillon te le dit explicitement.
+Si la troisième n'apparaît pas, c'est qu'AnkiDroid n'est pas installé. Ouvre **Réglages**
+depuis l'accueil : la première ligne dit explicitement ce qui manque.
 
 ## 4. Coller ta clé d'API
 
-Dans l'écran d'accueil. Elle est stockée chiffrée sur le téléphone
-(`EncryptedSharedPreferences`) et n'est jamais écrite dans un fichier du projet.
+Accueil → **Réglages** → « Clé d'API Anthropic ». Elle est stockée chiffrée sur le
+téléphone (`EncryptedSharedPreferences`), masquée à l'écran une fois saisie, et n'est
+jamais écrite dans un fichier du projet.
 
 ## 5. Les premiers trajets : laisse le mode journal actif
 
@@ -71,19 +69,29 @@ n'affiche qu'un état en gros caractères et ne te demande jamais rien.
 
 ### Ce que tu peux dire
 
-| Pour | Dis |
-|---|---|
-| Corriger la note en « à revoir » | « encore », « à revoir », « raté » |
-| Corriger en « difficile » | « difficile », « dur » |
-| Corriger en « bien » | « bien », « correct », « ok » |
-| Corriger en « facile » | « facile » |
-| Réentendre la question | « répète », « pardon » |
-| Passer sans noter | « passe », « suivante » |
-| Te faire expliquer | « explique », « je sèche », « je ne sais pas » |
-| Revenir sur la carte précédente | « reviens », « la précédente », « carte d'avant » |
-| Te faire réexpliquer la précédente | « explique la précédente », « c'était quoi déjà » |
-| Annuler la note de la carte précédente | « annule » |
-| Terminer | « stop », « pause », « terminé » |
+L'application t'écoute dans **deux fenêtres** : quand elle attend ta réponse, et pendant
+les sept secondes qui suivent son verdict. La dernière colonne dit où chaque commande agit.
+
+| Pour | Dis | Quand |
+|---|---|---|
+| Corriger la note en « à revoir » | « encore », « à revoir », « raté », « faux », « mauvais » | après le verdict |
+| Corriger en « difficile » | « difficile », « dur », « trop dur » | après le verdict |
+| Corriger en « bien » | « bien », « correct », « ok » | après le verdict |
+| Corriger en « facile » | « facile », « évident » | après le verdict |
+| Réentendre la question | « répète », « pardon » | pendant la réponse |
+| Réentendre le verdict | « répète » | après le verdict |
+| Passer sans noter | « passe », « suivante » | pendant la réponse |
+| Te faire expliquer | « explique », « je sèche », « je ne sais pas » | pendant la réponse |
+| Revenir sur la carte précédente | « reviens », « la précédente », « carte d'avant » | les deux |
+| Te faire réexpliquer la précédente | « explique la précédente », « c'était quoi déjà » | les deux |
+| Annuler la note de la carte précédente | « annule » | les deux |
+| Terminer la session | « stop », « terminé », « pause » | les deux |
+
+Une commande n'est reconnue que si elle constitue **toute** ta phrase : dire « je ne suis
+pas sûr, passe » compte comme une réponse, pas comme un « passe ». C'est délibéré — sinon
+la moitié des réponses déclencheraient une commande.
+
+« pause » termine la session comme « stop » : il n'y a pas de reprise.
 
 Après chaque verdict, tu as **sept secondes** pour corriger — douze en mode dégradé, où tu
 dois dicter la note toi-même. Si tu ne dis rien, la note proposée est retenue et
@@ -111,8 +119,14 @@ plafond est un simple réglage : passer à deux ou trois ne demandera qu'une con
 ### Si le réseau tombe
 
 La session continue en mode dégradé : Sillon lit le recto tel quel, écoute ta réponse, lit
-le verso, et te demande de dicter toi-même ta note. Elle repasse en mode normal dès que le
-réseau revient.
+le verso, et te demande de dicter toi-même ta note.
+
+Le mode dégradé ne vaut que **pour la carte en cours**. Chaque nouvelle carte retente le
+modèle, donc la session repasse d'elle-même en mode normal dès que le réseau revient. Sans
+cela, une coupure de dix secondes sous un pont condamnerait tout le reste du trajet.
+
+Une requête qui traîne est traitée comme une panne au bout de vingt secondes : au volant,
+un appel qui pend est pire qu'un appel qui échoue, puisque l'échec, lui, a une suite.
 
 ### Cartes à image ou à son
 
@@ -165,6 +179,13 @@ qualité, n'est pas disponible sur ce compte (quota à zéro) — vérifié, pas
 
 Dans les réglages, « Répondre au clavier » remplace le micro par un champ de texte. Toute
 la boucle s'exerce assis, ce qui permet d'ajuster les prompts sans prendre le volant.
+
+### Si AnkiDroid refuse une note
+
+Cela arrive quand la collection est verrouillée — AnkiDroid ouvert au premier plan, par
+exemple. Le refus est compté, écrit dans le journal avec sa raison, et annoncé dans le
+bilan de fin de session (« 2 non écrites dans Anki »). La carte reste due. Rien ne se perd
+en silence.
 
 ## Ce qui reste à éprouver
 

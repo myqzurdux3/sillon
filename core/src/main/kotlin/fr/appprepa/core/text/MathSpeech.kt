@@ -70,18 +70,11 @@ object MathSpeech {
         Regex("""\\dots(?![a-zA-Z])|\\ldots(?![a-zA-Z])""") to "et ainsi de suite",
     )
 
-    /** Reconnait la presence de notation mathematique. */
-    fun containsMath(raw: String): Boolean =
-        raw.contains("""\(""") || raw.contains("""\[""") ||
-            raw.contains('$') || Regex("""\\[a-zA-Z]+""").containsMatchIn(raw)
-
     /** Reconnait une formule delimitee, sous ses trois formes usuelles. */
     private val SPAN = Regex(
         """\\\((.+?)\\\)|\\\[(.+?)\\\]|\$\$?(.+?)\$\$?""",
         RegexOption.DOT_MATCHES_ALL,
     )
-
-    private val HTML_TAG = Regex("""<[^>]*>""")
 
     /**
      * Seule la notation est traduite. La prose francaise reste telle quelle : sans cela,
@@ -89,12 +82,7 @@ object MathSpeech {
      * derivee.
      */
     fun verbalize(raw: String): String {
-        val stripped = HTML_TAG.replace(raw, " ")
-            .replace("&nbsp;", " ")
-            .replace("&amp;", "&")
-            .replace("&lt;", "<")
-            .replace("&gt;", ">")
-            .replace("&quot;", "\"")
+        val stripped = Html.strip(raw)
 
         val rebuilt = SPAN.replace(stripped) { m ->
             val formula = m.groupValues.drop(1).firstOrNull { it.isNotEmpty() }.orEmpty()
