@@ -19,7 +19,7 @@ class RealDeckProbeTest {
     @Test
     fun aucuneCarteNePartAvecDuLatex() = runBlocking {
         assumeTrue(AnkiAvailability.check(context) == AnkiStatus.Ready)
-        val cards = AnkiDroidGateway(context.contentResolver).dueCards(null, 20)
+        val cards = AnkiDroidGateway(context.contentResolver).dueCards(emptySet(), 20)
         assumeTrue(cards.isNotEmpty())
 
         cards.take(6).forEachIndexed { index, card ->

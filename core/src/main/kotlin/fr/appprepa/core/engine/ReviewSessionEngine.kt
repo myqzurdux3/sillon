@@ -32,8 +32,8 @@ object ReviewSessionEngine {
 
     fun reduce(session: Session, event: Event, nowMs: Long): Reduction = when (event) {
         is Event.Start -> Reduction(
-            session.copy(state = SessionState.Loading, deckId = event.deckId),
-            listOf(Effect.LoadCards(event.deckId, event.limit)),
+            session.copy(state = SessionState.Loading, deckIds = event.deckIds),
+            listOf(Effect.LoadCards(event.deckIds, event.limit)),
         )
 
         is Event.CardsLoaded -> onCardsLoaded(session, event, nowMs)

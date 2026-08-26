@@ -117,7 +117,7 @@ class SessionService : Service() {
         }
 
         val outcome = runCatching {
-            guard.withFocus { session.run(settings.deckId, settings.cardLimit) }
+            guard.withFocus { session.run(settings.deckIds, settings.cardLimit) }
         }
         mirror.cancel()
         mirrorProgress.cancel()

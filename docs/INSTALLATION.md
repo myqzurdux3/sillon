@@ -119,6 +119,24 @@ réseau revient.
 Elles sont écartées et journalisées, sans être notées. Inutilisables en conduisant, elles
 restent dues pour une révision à l'écran.
 
+## Choisir ce que tu révises
+
+Dans Réglages → « Paquets à réviser » → **Choisir**. La liste montre tes paquets avec le
+nombre de cartes dues à côté de chacun ; les sous-paquets sont indentés sous leur parent.
+
+Cocher un parent coche ses sous-paquets. L'application interroge ensuite **chaque paquet
+coché explicitement** : ce que tu coches est exactement ce que tu révises, sans dépendre
+de la façon dont AnkiDroid traite un identifiant de parent.
+
+Plusieurs paquets cochés se révisent **entrelacés** — une carte de Maths, une d'Info, une
+de Maths. Un trajet coupé en deux blocs thématiques réviserait mal.
+
+Rien de coché veut dire tous les paquets.
+
+Juste en dessous, **Cartes par session** : 10, 20, 40, 60, ou tout. Des boutons plutôt
+qu'un champ, pour ne pas avoir à sortir le clavier avant de démarrer. S'il y a moins de
+cartes dues que la limite, tu auras ce qu'il y a.
+
 ## Le seul réglage qui touche à la vitesse
 
 Le trajet a deux temps d'attente. Celui de la **question** est masqué : pendant que tu

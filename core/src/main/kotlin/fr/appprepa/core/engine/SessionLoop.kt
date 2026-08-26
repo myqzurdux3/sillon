@@ -59,11 +59,11 @@ class SessionLoop(
         currentListen?.cancel()
     }
 
-    suspend fun run(deckId: Long?, limit: Int): SessionStats = coroutineScope {
+    suspend fun run(deckIds: Set<Long>, limit: Int): SessionStats = coroutineScope {
         session = Session(writeMode = writeMode)
         stopRequested = false
         queue.clear()
-        queue += Event.Start(deckId, limit)
+        queue += Event.Start(deckIds, limit)
 
         while (queue.isNotEmpty()) {
             val queued = queue.removeFirst()
@@ -95,7 +95,7 @@ class SessionLoop(
     private suspend fun perform(effect: Effect, scope: CoroutineScope) {
         when (effect) {
             is Effect.LoadCards -> queue += runCatching {
-                Event.CardsLoaded(gateway.dueCards(effect.deckId, effect.limit))
+                Event.CardsLoaded(gateway.dueCards(effect.deckIds, effect.limit))
             }.getOrElse { Event.Fatal(it.message ?: "lecture AnkiDroid impossible") }
 
             is Effect.Speak -> {

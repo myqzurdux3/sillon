@@ -16,10 +16,12 @@ import fr.appprepa.app.anki.AnkiDroidGateway
 import fr.appprepa.app.journal.JsonlJournal
 import fr.appprepa.app.session.SessionService
 import fr.appprepa.app.settings.SettingsStore
+import fr.appprepa.core.deck.DeckInfo
+import fr.appprepa.core.deck.DeckSelection
 import fr.appprepa.core.model.JournalRecord
 import java.io.File
 
-private enum class Screen { HOME, SETTINGS, JOURNAL }
+private enum class Screen { HOME, SETTINGS, DECKS, JOURNAL }
 
 class MainActivity : ComponentActivity() {
 
@@ -34,6 +36,8 @@ class MainActivity : ComponentActivity() {
                 var screen by remember { mutableStateOf(Screen.HOME) }
                 var entries by remember { mutableStateOf(emptyList<JournalRecord>()) }
                 var ankiMessage by remember { mutableStateOf("") }
+                var decks by remember { mutableStateOf(emptyList<DeckInfo>()) }
+                var selectedDecks by remember { mutableStateOf(settings.deckIds) }
                 var debugTranscripts by remember { mutableStateOf(settings.debugTranscripts) }
 
                 // Les permissions sont demandees a l'arret, jamais en roulant.
@@ -55,6 +59,12 @@ class MainActivity : ComponentActivity() {
                     if (screen == Screen.JOURNAL) {
                         entries = journal.today(System.currentTimeMillis())
                     }
+                    // Les compteurs changent a chaque revision : on les relit a l'ouverture.
+                    if (screen == Screen.DECKS || screen == Screen.SETTINGS) {
+                        decks = runCatching {
+                            AnkiDroidGateway(contentResolver).decks()
+                        }.getOrDefault(emptyList())
+                    }
                     if (screen == Screen.HOME) {
                         debugTranscripts = settings.debugTranscripts
                     }
@@ -73,8 +83,24 @@ class MainActivity : ComponentActivity() {
                         ankiMessage = ankiMessage.ifBlank {
                             AnkiAvailability.message(AnkiAvailability.check(this@MainActivity))
                         },
+                        deckSummary = deckSummary(decks, selectedDecks),
+                        onOpenDecks = { screen = Screen.DECKS },
                         onOpenJournal = { screen = Screen.JOURNAL },
                         onBack = { screen = Screen.HOME },
+                    )
+
+                    Screen.DECKS -> DeckScreen(
+                        decks = decks,
+                        selected = selectedDecks,
+                        onToggle = { id ->
+                            selectedDecks = DeckSelection.toggle(decks, selectedDecks, id)
+                            settings.deckIds = selectedDecks
+                        },
+                        onClear = {
+                            selectedDecks = emptySet()
+                            settings.deckIds = emptySet()
+                        },
+                        onBack = { screen = Screen.SETTINGS },
                     )
 
                     Screen.JOURNAL -> JournalScreen(entries) { screen = Screen.SETTINGS }
@@ -82,4 +108,18 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+}
+
+/** Ligne de resume affichee dans les reglages, sous « Paquets a reviser ». */
+private fun deckSummary(decks: List<DeckInfo>, selected: Set<Long>): String {
+    if (decks.isEmpty()) return "AnkiDroid n'a renvoyé aucun paquet."
+    if (selected.isEmpty()) {
+        val total = decks.sumOf { it.dueCount }
+        return "Tous les paquets · $total cartes dues"
+    }
+    val chosen = decks.filter { it.id in selected }
+    val total = chosen.sumOf { it.dueCount }
+    val names = chosen.take(3).joinToString(", ") { it.shortName }
+    val reste = if (chosen.size > 3) " et ${chosen.size - 3} autres" else ""
+    return "$names$reste · $total cartes dues"
 }

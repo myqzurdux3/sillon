@@ -23,11 +23,11 @@ class AnkiAvailabilityTest {
     @Test
     fun laCollectionContientDesCartesDues() = runBlocking {
         val gateway = AnkiDroidGateway(context.contentResolver)
-        var cards: List<ReviewCard> = gateway.dueCards(null, 5)
+        var cards: List<ReviewCard> = gateway.dueCards(emptySet(), 5)
         if (cards.isEmpty()) {
             val inserted = AnkiTestFixtures.seedBasicNotes(context.contentResolver, 5)
             assertTrue("aucune note n'a pu etre inseree", inserted > 0)
-            cards = gateway.dueCards(null, 5)
+            cards = gateway.dueCards(emptySet(), 5)
         }
         assertTrue("aucune carte due apres amorcage", cards.isNotEmpty())
     }

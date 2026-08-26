@@ -50,7 +50,7 @@ class GracefulStopTest {
         )
         listener.loop = loop
 
-        loop.run(null, 30)
+        loop.run(emptySet(), 30)
 
         assertEquals(
             "la carte repondue avant l'arret doit etre ecrite",
@@ -73,7 +73,7 @@ class GracefulStopTest {
         )
         listener.loop = loop
 
-        loop.run(null, 30)
+        loop.run(emptySet(), 30)
         assertTrue("aucune note ne doit partir", gateway.answered.isEmpty())
     }
 }

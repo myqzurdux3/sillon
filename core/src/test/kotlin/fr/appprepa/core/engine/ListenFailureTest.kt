@@ -89,7 +89,7 @@ class ListenFailureTest {
         val stats = SessionLoop(
             gateway, FakeTutor(), FakeSpeaker(), listener, FakeJournal(), FakeClock(),
             WriteMode.WRITE_THROUGH,
-        ).run(null, 30)
+        ).run(emptySet(), 30)
 
         assertTrue("aucune carte ne doit etre notee", gateway.answered.isEmpty())
         assertEquals("la session doit s'arreter, pas defiler", 0, stats.answered)

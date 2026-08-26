@@ -1,5 +1,7 @@
 package fr.appprepa.core.engine
 
+import fr.appprepa.core.deck.DeckInfo
+import fr.appprepa.core.deck.DeckMerge
 import fr.appprepa.core.model.Ease
 import fr.appprepa.core.model.Judgement
 import fr.appprepa.core.model.JournalRecord
@@ -17,11 +19,28 @@ import fr.appprepa.core.ports.Tutor
 
 class FakeAnkiGateway(private val cards: List<ReviewCard>) : AnkiGateway {
     val answered = mutableListOf<Triple<Long, Int, Ease>>()
-    override suspend fun dueCards(deckId: Long?, limit: Int) = cards.take(limit)
+    var lastDeckIds: Set<Long> = emptySet()
+        private set
+
+    override suspend fun dueCards(deckIds: Set<Long>, limit: Int): List<ReviewCard> {
+        lastDeckIds = deckIds
+        val retenues = if (deckIds.isEmpty()) {
+            cards
+        } else {
+            cards.filter { deckIds.contains(deckIdOf(it.deckName)) }
+        }
+        return DeckMerge.interleave(listOf(retenues), limit)
+    }
+
     override suspend fun answer(noteId: Long, cardOrd: Int, ease: Ease, timeTakenMs: Long) {
         answered += Triple(noteId, cardOrd, ease)
     }
-    override suspend fun decks() = mapOf(1L to "Prepa")
+
+    override suspend fun decks() = cards.map { it.deckName }.distinct().mapIndexed { i, name ->
+        DeckInfo(deckIdOf(name), name, cards.count { it.deckName == name })
+    }
+
+    private fun deckIdOf(name: String): Long = name.hashCode().toLong()
 }
 
 class FakeTutor(

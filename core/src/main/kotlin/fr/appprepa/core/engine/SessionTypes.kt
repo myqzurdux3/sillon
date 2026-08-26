@@ -73,7 +73,7 @@ sealed interface SessionState {
 }
 
 sealed interface Event {
-    data class Start(val deckId: Long?, val limit: Int) : Event
+    data class Start(val deckIds: Set<Long>, val limit: Int) : Event
     data class CardsLoaded(val cards: List<ReviewCard>) : Event
     data class Reformulated(val card: ReviewCard, val question: ReformulatedQuestion) : Event
     data object SpeechFinished : Event
@@ -100,7 +100,7 @@ enum class ListenKind { ANSWER, CORRECTION }
 sealed interface Effect {
     data class Speak(val text: String) : Effect
     data class Listen(val kind: ListenKind, val timeoutMs: Long) : Effect
-    data class LoadCards(val deckId: Long?, val limit: Int) : Effect
+    data class LoadCards(val deckIds: Set<Long>, val limit: Int) : Effect
     data class Reformulate(val card: ReviewCard, val memory: SessionMemory) : Effect
     data class Judge(
         val card: ReviewCard,
@@ -130,7 +130,7 @@ data class Session(
     val degraded: Boolean = false,
     val stats: SessionStats = SessionStats(),
     val writeMode: WriteMode = WriteMode.JOURNAL_ONLY,
-    val deckId: Long? = null,
+    val deckIds: Set<Long> = emptySet(),
     val retriedAnswer: Boolean = false,
     /** Echecs d'ecoute consecutifs. Remis a zero des qu'une reponse est entendue. */
     val listenFailures: Int = 0,

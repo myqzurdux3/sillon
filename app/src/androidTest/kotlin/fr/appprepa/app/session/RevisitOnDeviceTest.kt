@@ -1,5 +1,6 @@
 package fr.appprepa.app.session
 
+import fr.appprepa.core.deck.DeckInfo
 import fr.appprepa.core.engine.SessionLoop
 import fr.appprepa.core.model.Ease
 import fr.appprepa.core.model.Judgement
@@ -33,11 +34,11 @@ class RevisitOnDeviceTest {
 
     private class Gateway(private val cards: List<ReviewCard>) : AnkiGateway {
         val answered = mutableListOf<Triple<Long, Int, Ease>>()
-        override suspend fun dueCards(deckId: Long?, limit: Int) = cards.take(limit)
+        override suspend fun dueCards(deckIds: Set<Long>, limit: Int) = cards.take(limit)
         override suspend fun answer(noteId: Long, cardOrd: Int, ease: Ease, timeTakenMs: Long) {
             answered += Triple(noteId, cardOrd, ease)
         }
-        override suspend fun decks() = mapOf(1L to "Deck")
+        override suspend fun decks() = listOf(DeckInfo(1L, "Deck", cards.size))
     }
 
     private class StubTutor : Tutor {
@@ -92,7 +93,7 @@ class RevisitOnDeviceTest {
             gateway, StubTutor(), speaker, Script(script), Log(), Ticks(),
             WriteMode.WRITE_THROUGH,
         )
-        loop.run(null, 30)
+        loop.run(emptySet(), 30)
 
         assertTrue(
             "la carte precedente doit avoir ete rappelee a voix haute",

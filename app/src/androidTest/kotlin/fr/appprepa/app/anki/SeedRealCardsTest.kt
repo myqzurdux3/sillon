@@ -17,7 +17,7 @@ class SeedRealCardsTest {
         val inserted = AnkiTestFixtures.seedRealCards(context.contentResolver)
         assertTrue("aucune carte reelle inseree", inserted > 0)
 
-        val cards = AnkiDroidGateway(context.contentResolver).dueCards(null, 30)
+        val cards = AnkiDroidGateway(context.contentResolver).dueCards(emptySet(), 30)
         assertTrue(cards.isNotEmpty())
     }
 }

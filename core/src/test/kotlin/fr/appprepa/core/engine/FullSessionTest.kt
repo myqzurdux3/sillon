@@ -31,7 +31,7 @@ class FullSessionTest {
         val script = mutableListOf<String?>(
             "reponse 1", null, "reponse 2", null, "reponse 3", null,
         )
-        val stats = loop(cards, script, gateway = gateway).run(null, 30)
+        val stats = loop(cards, script, gateway = gateway).run(emptySet(), 30)
 
         assertEquals(3, stats.answered)
         assertEquals(listOf(1L, 2L, 3L), gateway.answered.map { it.first })
@@ -45,7 +45,7 @@ class FullSessionTest {
         val journal = FakeJournal()
         val script = mutableListOf<String?>("reponse 1", null, "reponse 2", null)
         loop(cards, script, gateway = gateway, journal = journal, mode = WriteMode.JOURNAL_ONLY)
-            .run(null, 30)
+            .run(emptySet(), 30)
 
         assertTrue("aucune ecriture Anki attendue", gateway.answered.isEmpty())
         assertEquals(2, journal.entries.count { it.proposedEase != null })
@@ -57,7 +57,7 @@ class FullSessionTest {
         val cards = listOf(card(1))
         val gateway = FakeAnkiGateway(cards)
         val script = mutableListOf<String?>("reponse 1", "a revoir")
-        loop(cards, script, gateway = gateway).run(null, 30)
+        loop(cards, script, gateway = gateway).run(emptySet(), 30)
 
         assertEquals(listOf(Triple(1L, 0, Ease.AGAIN)), gateway.answered)
     }
@@ -67,7 +67,7 @@ class FullSessionTest {
         val cards = listOf(card(1), card(2))
         val gateway = FakeAnkiGateway(cards)
         val script = mutableListOf<String?>("reponse 1", null, "reponse 2", "annule")
-        loop(cards, script, gateway = gateway).run(null, 30)
+        loop(cards, script, gateway = gateway).run(emptySet(), 30)
 
         assertEquals(
             "seule la carte 2 doit etre ecrite",
@@ -82,7 +82,7 @@ class FullSessionTest {
         val gateway = FakeAnkiGateway(cards)
         val tutor = FakeTutor(failOn = setOf(1L, 2L))
         val script = mutableListOf<String?>("reponse 1", "facile", "reponse 2", "bien")
-        val stats = loop(cards, script, tutor = tutor, gateway = gateway).run(null, 30)
+        val stats = loop(cards, script, tutor = tutor, gateway = gateway).run(emptySet(), 30)
 
         assertEquals(2, stats.answered)
         assertEquals(listOf(Ease.EASY, Ease.GOOD), gateway.answered.map { it.third })
@@ -94,7 +94,7 @@ class FullSessionTest {
         val gateway = FakeAnkiGateway(cards)
         val journal = FakeJournal()
         val script = mutableListOf<String?>("reponse 2", null)
-        loop(cards, script, gateway = gateway, journal = journal).run(null, 30)
+        loop(cards, script, gateway = gateway, journal = journal).run(emptySet(), 30)
 
         assertEquals(listOf(2L), gateway.answered.map { it.first })
         assertTrue(journal.entries.any { it.noteId == 1L && it.note != null })
@@ -105,7 +105,7 @@ class FullSessionTest {
         val cards = listOf(card(1), card(2), card(3))
         val tutor = FakeTutor()
         val script = mutableListOf<String?>("reponse 1", null, "reponse 2", null, "reponse 3", null)
-        loop(cards, script, tutor = tutor).run(null, 30)
+        loop(cards, script, tutor = tutor).run(emptySet(), 30)
 
         assertEquals("une reformulation par carte, pas davantage", 3, tutor.reformulations)
     }
@@ -121,7 +121,7 @@ class FullSessionTest {
             "reponse 2", null,
             "reponse 3", null,
         )
-        loop(cards, script, gateway = gateway).run(null, 30)
+        loop(cards, script, gateway = gateway).run(emptySet(), 30)
 
         assertEquals(listOf(1L, 2L, 3L), gateway.answered.map { it.first })
         assertEquals(
@@ -133,7 +133,7 @@ class FullSessionTest {
 
     @Test
     fun `une collection sans carte due se termine proprement`() = runTest {
-        val stats = loop(emptyList(), mutableListOf()).run(null, 30)
+        val stats = loop(emptyList(), mutableListOf()).run(emptySet(), 30)
         assertEquals(0, stats.answered)
     }
 }

@@ -36,7 +36,7 @@ class RealSessionTest {
         val gateway = AnkiDroidGateway(context.contentResolver)
         // On vise les cartes qui portent vraiment de la notation : ce sont elles qui
         // decident si le produit est utilisable sur un deck de prepa.
-        val toutes = gateway.dueCards(null, 30)
+        val toutes = gateway.dueCards(emptySet(), 30)
         val cards = toutes.filter { it.question.length > 25 || it.answer.length > 120 }
             .ifEmpty { toutes }
         assumeTrue("aucune carte due", cards.isNotEmpty())

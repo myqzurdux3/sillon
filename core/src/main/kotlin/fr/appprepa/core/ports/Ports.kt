@@ -1,5 +1,6 @@
 package fr.appprepa.core.ports
 
+import fr.appprepa.core.deck.DeckInfo
 import fr.appprepa.core.model.Ease
 import fr.appprepa.core.model.Judgement
 import fr.appprepa.core.model.JournalRecord
@@ -9,9 +10,15 @@ import fr.appprepa.core.model.SessionMemory
 
 /** Acces a la collection AnkiDroid. */
 interface AnkiGateway {
-    suspend fun dueCards(deckId: Long?, limit: Int): List<ReviewCard>
+    /**
+     * Cartes dues des paquets demandes, entrelacees. Un ensemble vide vaut « tous les
+     * paquets ».
+     */
+    suspend fun dueCards(deckIds: Set<Long>, limit: Int): List<ReviewCard>
     suspend fun answer(noteId: Long, cardOrd: Int, ease: Ease, timeTakenMs: Long)
-    suspend fun decks(): Map<Long, String>
+
+    /** Les paquets, avec leur nombre de cartes dues. */
+    suspend fun decks(): List<DeckInfo>
 }
 
 /** Le LLM, vu par le moteur. */

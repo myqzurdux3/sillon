@@ -37,9 +37,9 @@ class NominalLoopTest {
 
     @Test
     fun `demarrer demande le chargement des cartes`() {
-        val result = ReviewSessionEngine.reduce(Session(), Event.Start(deckId = 7L, limit = 30), 0L)
+        val result = ReviewSessionEngine.reduce(Session(), Event.Start(deckIds = setOf(7L), limit = 30), 0L)
         assertEquals(SessionState.Loading, result.session.state)
-        assertEquals(listOf(Effect.LoadCards(7L, 30)), result.effects)
+        assertEquals(listOf(Effect.LoadCards(setOf(7L), 30)), result.effects)
     }
 
     @Test

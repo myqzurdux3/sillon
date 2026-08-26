@@ -26,7 +26,7 @@ class LatencyTest {
         assumeTrue("cle d'API absente", apiKey.isNotBlank())
         assumeTrue(AnkiAvailability.check(context) == AnkiStatus.Ready)
 
-        val cards = AnkiDroidGateway(context.contentResolver).dueCards(null, 3)
+        val cards = AnkiDroidGateway(context.contentResolver).dueCards(emptySet(), 3)
         assumeTrue(cards.isNotEmpty())
 
         val variantes = listOf(

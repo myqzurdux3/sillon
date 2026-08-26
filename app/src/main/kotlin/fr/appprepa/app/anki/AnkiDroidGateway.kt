@@ -3,6 +3,8 @@ package fr.appprepa.app.anki
 import android.content.ContentResolver
 import android.content.ContentValues
 import android.net.Uri
+import fr.appprepa.core.deck.DeckInfo
+import fr.appprepa.core.deck.DeckMerge
 import fr.appprepa.core.model.Ease
 import fr.appprepa.core.model.ReviewCard
 import fr.appprepa.core.ports.AnkiGateway
@@ -19,19 +21,36 @@ import org.json.JSONArray
  */
 class AnkiDroidGateway(private val resolver: ContentResolver) : AnkiGateway {
 
-    override suspend fun dueCards(deckId: Long?, limit: Int): List<ReviewCard> =
+    /**
+     * Chaque paquet est interroge separement, puis les resultats sont entrelaces.
+     * Interroger un parent en esperant qu'il ramene ses enfants reposerait sur une
+     * semantique que la documentation d'AnkiDroid ne precise pas.
+     */
+    override suspend fun dueCards(deckIds: Set<Long>, limit: Int): List<ReviewCard> =
         withContext(Dispatchers.IO) {
-            val selection = if (deckId != null) "limit=?, deckID=?" else "limit=?"
-            val args = if (deckId != null) {
-                arrayOf(limit.toString(), deckId.toString())
+            val names = deckNamesBlocking()
+            val perDeck = if (deckIds.isEmpty()) {
+                listOf(querySchedule(null, limit, names))
             } else {
-                arrayOf(limit.toString())
+                deckIds.map { querySchedule(it, limit, names) }
             }
+            DeckMerge.interleave(perDeck, limit)
+        }
 
-            val deckNames = decksBlocking()
+    private fun querySchedule(
+        deckId: Long?,
+        limit: Int,
+        deckNames: Map<Long, String>,
+    ): List<ReviewCard> {
+        val selection = if (deckId != null) "limit=?, deckID=?" else "limit=?"
+        val args = if (deckId != null) {
+            arrayOf(limit.toString(), deckId.toString())
+        } else {
+            arrayOf(limit.toString())
+        }
 
-            resolver.query(SCHEDULE_URI, null, selection, args, null).use { cursor ->
-                if (cursor == null) return@withContext emptyList()
+        return resolver.query(SCHEDULE_URI, null, selection, args, null).use { cursor ->
+                if (cursor == null) return emptyList()
                 buildList {
                     while (cursor.moveToNext()) {
                         val noteId = cursor.getLong(cursor.getColumnIndexOrThrow(NOTE_ID))
@@ -59,8 +78,8 @@ class AnkiDroidGateway(private val resolver: ContentResolver) : AnkiGateway {
                         )
                     }
                 }
-            }
         }
+    }
 
     override suspend fun answer(noteId: Long, cardOrd: Int, ease: Ease, timeTakenMs: Long) {
         withContext(Dispatchers.IO) {
@@ -75,19 +94,39 @@ class AnkiDroidGateway(private val resolver: ContentResolver) : AnkiGateway {
         }
     }
 
-    override suspend fun decks(): Map<Long, String> = withContext(Dispatchers.IO) { decksBlocking() }
+    override suspend fun decks(): List<DeckInfo> = withContext(Dispatchers.IO) { decksBlocking() }
 
-    private fun decksBlocking(): Map<Long, String> =
+    /**
+     * `deck_count` est un triplet [nouvelles, en apprentissage, a revoir] : c'est ce
+     * chiffre qui permet de cocher un paquet en connaissance de cause.
+     */
+    private fun decksBlocking(): List<DeckInfo> =
         resolver.query(DECKS_URI, null, null, null, null).use { cursor ->
-            if (cursor == null) return emptyMap()
-            buildMap {
+            if (cursor == null) return emptyList()
+            buildList {
                 while (cursor.moveToNext()) {
                     val id = cursor.getLong(cursor.getColumnIndexOrThrow(DECK_ID))
                     val name = cursor.getString(cursor.getColumnIndexOrThrow(DECK_NAME)) ?: ""
-                    put(id, name)
+                    val due = cursor.getColumnIndex(DECK_COUNTS)
+                        .takeIf { it >= 0 }
+                        ?.let { sumCounts(cursor.getString(it)) }
+                        ?: 0
+                    add(DeckInfo(id, name, due))
                 }
             }
         }
+
+    private fun deckNamesBlocking(): Map<Long, String> =
+        decksBlocking().associate { it.id to it.name }
+
+    /** « [0,0,18] » vaut dix-huit cartes a faire. */
+    private fun sumCounts(raw: String?): Int {
+        if (raw.isNullOrBlank()) return 0
+        return runCatching {
+            val array = JSONArray(raw)
+            (0 until array.length()).sumOf { array.getInt(it) }
+        }.getOrDefault(0)
+    }
 
     private data class CardText(val question: String, val answer: String, val deckId: Long)
 
@@ -168,5 +207,6 @@ class AnkiDroidGateway(private val resolver: ContentResolver) : AnkiGateway {
         private const val CARD_DECK_ID = "deck_id"
         private const val DECK_ID = "deck_id"
         private const val DECK_NAME = "deck_name"
+        private const val DECK_COUNTS = "deck_count"
     }
 }

@@ -1,7 +1,10 @@
 package fr.appprepa.app.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -29,6 +32,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import fr.appprepa.app.settings.ALL_CARDS
 import fr.appprepa.app.settings.SettingsStore
 import fr.appprepa.core.model.WriteMode
 
@@ -37,6 +41,8 @@ import fr.appprepa.core.model.WriteMode
 fun SettingsScreen(
     settings: SettingsStore,
     ankiMessage: String,
+    deckSummary: String,
+    onOpenDecks: () -> Unit,
     onOpenJournal: () -> Unit,
     onBack: () -> Unit,
 ) {
@@ -44,6 +50,7 @@ fun SettingsScreen(
     var writeThrough by remember { mutableStateOf(settings.writeMode == WriteMode.WRITE_THROUGH) }
     var debugMode by remember { mutableStateOf(settings.debugTranscripts) }
     var revealKey by remember { mutableStateOf(false) }
+    var limit by remember { mutableStateOf(settings.cardLimit) }
     var fastJudge by remember { mutableStateOf(settings.fastJudge) }
 
     Column(
@@ -94,6 +101,49 @@ fun SettingsScreen(
             },
             modifier = Modifier.fillMaxWidth(),
         )
+
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(
+                "Paquets à réviser",
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onBackground,
+            )
+            Text(deckSummary, style = MaterialTheme.typography.bodySmall, color = SillonPalette.faint)
+            TextButton(onClick = onOpenDecks, contentPadding = PaddingValues(0.dp)) {
+                Text("Choisir", color = SillonPalette.accent, fontSize = 16.sp)
+            }
+        }
+
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text(
+                "Cartes par session",
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onBackground,
+            )
+            Text(
+                "S'il y a moins de cartes dues que la limite, tu auras ce qu'il y a.",
+                style = MaterialTheme.typography.bodySmall,
+                color = SillonPalette.faint,
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(18.dp)) {
+                SettingsStore.LIMIT_CHOICES.forEach { choice ->
+                    val label = if (choice >= ALL_CARDS) "tout" else "$choice"
+                    Text(
+                        text = label,
+                        fontSize = 17.sp,
+                        color = if (choice == limit) {
+                            SillonPalette.accent
+                        } else {
+                            SillonPalette.faint
+                        },
+                        modifier = Modifier.clickable {
+                            limit = choice
+                            settings.cardLimit = choice
+                        },
+                    )
+                }
+            }
+        }
 
         Toggle(
             title = "Écrire les notes dans Anki",
