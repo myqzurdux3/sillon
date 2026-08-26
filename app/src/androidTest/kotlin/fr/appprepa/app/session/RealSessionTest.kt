@@ -34,7 +34,11 @@ class RealSessionTest {
         assumeTrue(AnkiAvailability.check(context) == AnkiStatus.Ready)
 
         val gateway = AnkiDroidGateway(context.contentResolver)
-        val cards = gateway.dueCards(null, 3)
+        // On vise les cartes qui portent vraiment de la notation : ce sont elles qui
+        // decident si le produit est utilisable sur un deck de prepa.
+        val toutes = gateway.dueCards(null, 30)
+        val cards = toutes.filter { it.question.length > 25 || it.answer.length > 120 }
+            .ifEmpty { toutes }
         assumeTrue("aucune carte due", cards.isNotEmpty())
 
         val tutor = AnthropicTutor(apiKey)

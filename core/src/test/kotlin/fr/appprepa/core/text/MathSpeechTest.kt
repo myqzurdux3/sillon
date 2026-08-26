@@ -95,6 +95,52 @@ class MathSpeechTest {
     }
 
     @Test
+    fun `laisse les apostrophes francaises tranquilles`() {
+        // « d'un » ne doit pas devenir « d prime un » : le prime n'existe qu'en formule.
+        assertEquals(
+            "Divisibilité d'un produit d'entiers consécutifs",
+            MathSpeech.verbalize("Divisibilité d'un produit d'entiers consécutifs"),
+        )
+        assertEquals(
+            "au sens de l'inclusion",
+            MathSpeech.verbalize("au sens de l'inclusion"),
+        )
+    }
+
+    @Test
+    fun `dit encore la derivee a l'interieur d'une formule`() {
+        assertTrue(MathSpeech.verbalize("""\(f'(x)\)""").contains("prime"))
+    }
+
+    @Test
+    fun `ne confond pas cdots avec cdot`() {
+        val spoken = MathSpeech.verbalize("""\(n(n+1)\cdots(n+k)\)""")
+        assertFalse("« foiss » : $spoken", spoken.contains("foiss"))
+        assertTrue(spoken.contains("et ainsi de suite"))
+    }
+
+    @Test
+    fun `dit l'etoile des ensembles prives de zero`() {
+        assertTrue(MathSpeech.verbalize("""\(\mathbb{N}^*\)""").contains("étoile"))
+    }
+
+    @Test
+    fun `retire le HTML residuel`() {
+        assertEquals(
+            "Si x est nul",
+            MathSpeech.verbalize("<div class=\"bloc\">Si x est nul</div>"),
+        )
+    }
+
+    @Test
+    fun `survit a une formule non refermee`() {
+        // Une carte tronquee laisse un delimiteur ouvert : il ne doit pas etre prononce.
+        val spoken = MathSpeech.verbalize("""Une somme vide : \(n""")
+        assertFalse("delimiteur restant : $spoken", spoken.contains("\\"))
+        assertTrue(spoken.startsWith("Une somme vide"))
+    }
+
+    @Test
     fun `dit vrai quand le texte contient des maths`() {
         assertTrue(MathSpeech.containsMath("""\(x^2\)"""))
         assertFalse(MathSpeech.containsMath("Théorème des segments emboîtés"))

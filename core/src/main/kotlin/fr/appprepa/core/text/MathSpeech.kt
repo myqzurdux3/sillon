@@ -48,8 +48,9 @@ object MathSpeech {
         // Relations et operateurs
         Regex("""\\pm""") to "plus ou moins",
         Regex("""\\mp""") to "moins ou plus",
-        Regex("""\\times""") to "fois",
-        Regex("""\\cdot""") to "fois",
+        Regex("""\\times(?![a-zA-Z])""") to "fois",
+        Regex("""\\cdots(?![a-zA-Z])""") to "et ainsi de suite",
+        Regex("""\\cdot(?![a-zA-Z])""") to "fois",
         Regex("""\\div""") to "divisé par",
         Regex("""\\neq""") to "différent de",
         Regex("""\\leq|\\le""") to "inférieur ou égal à",
@@ -66,7 +67,7 @@ object MathSpeech {
         Regex("""\\iff|\\Leftrightarrow""") to "équivaut à",
         Regex("""\\forall""") to "pour tout",
         Regex("""\\exists""") to "il existe",
-        Regex("""\\dots|\\ldots|\\cdots""") to "et ainsi de suite",
+        Regex("""\\dots(?![a-zA-Z])|\\ldots(?![a-zA-Z])""") to "et ainsi de suite",
     )
 
     /** Reconnait la presence de notation mathematique. */
@@ -74,17 +75,51 @@ object MathSpeech {
         raw.contains("""\(""") || raw.contains("""\[""") ||
             raw.contains('$') || Regex("""\\[a-zA-Z]+""").containsMatchIn(raw)
 
-    fun verbalize(raw: String): String {
-        var text = raw
+    /** Reconnait une formule delimitee, sous ses trois formes usuelles. */
+    private val SPAN = Regex(
+        """\\\((.+?)\\\)|\\\[(.+?)\\\]|\$\$?(.+?)\$\$?""",
+        RegexOption.DOT_MATCHES_ALL,
+    )
 
-        // Delimiteurs de formule : on garde le contenu, on jette les bornes.
-        text = text.replace(Regex("""\\[\(\[]"""), " ")
-        text = text.replace(Regex("""\\[\)\]]"""), " ")
-        text = text.replace(Regex("""\$\$?"""), " ")
+    private val HTML_TAG = Regex("""<[^>]*>""")
+
+    /**
+     * Seule la notation est traduite. La prose francaise reste telle quelle : sans cela,
+     * « d'un produit » devient « d prime un produit », l'apostrophe etant prise pour une
+     * derivee.
+     */
+    fun verbalize(raw: String): String {
+        val stripped = HTML_TAG.replace(raw, " ")
+            .replace("&nbsp;", " ")
+            .replace("&amp;", "&")
+            .replace("&lt;", "<")
+            .replace("&gt;", ">")
+            .replace("&quot;", "\"")
+
+        val rebuilt = SPAN.replace(stripped) { m ->
+            val formula = m.groupValues.drop(1).firstOrNull { it.isNotEmpty() }.orEmpty()
+            " " + speakFormula(formula) + " "
+        }
+
+        // Une carte peut porter des commandes hors delimiteur : on ne les prononce pas.
+        // Et une carte tronquee laisse un delimiteur ouvert, que rien n'a ferme.
+        return Regex("""\\[a-zA-Z]+""").replace(rebuilt, " ")
+            .replace(Regex("""\\[\(\)\[\]]"""), " ")
+            // Un antislash isole — saut de ligne LaTeX, reste de troncature — ne se dit pas.
+            .replace("\\", " ")
+            .replace(Regex("""\s+"""), " ")
+            .trim()
+    }
+
+    private fun speakFormula(raw: String): String {
+        var text = raw
 
         COMMANDS.forEach { (pattern, replacement) ->
             text = pattern.replace(text, replacement)
         }
+
+        // « N^* » se dit « N etoile ».
+        text = Regex("""\^\s*\{?\s*\*\s*\}?""").replace(text, " étoile ")
 
         // Puissances et indices, apres les commandes pour ne pas manger \pi^2.
         text = Regex("""\^\s*\{?\s*2\s*\}?""").replace(text, " au carré")
