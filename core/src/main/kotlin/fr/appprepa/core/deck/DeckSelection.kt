@@ -22,6 +22,31 @@ object DeckSelection {
         return if (deckId in selected) selected - family else selected + family
     }
 
+    /** Vrai si le paquet a au moins un descendant : lui seul porte un chevron. */
+    fun hasChildren(decks: List<DeckInfo>, deck: DeckInfo): Boolean {
+        val prefix = deck.name + DeckInfo.SEPARATOR
+        return decks.any { it.name.startsWith(prefix) }
+    }
+
+    /**
+     * Cartes dues du paquet et de toute sa descendance. Un paquet replie affiche ce
+     * total : sans lui, replier ferait disparaitre les chiffres qui servent a choisir.
+     */
+    fun familyDue(decks: List<DeckInfo>, deck: DeckInfo): Int =
+        familyOf(decks, deck).sumOf { it.dueCount }
+
+    /**
+     * Ce qui reste a l'ecran une fois les familles repliees. Un paquet replie cache
+     * toute sa descendance, petits-enfants compris.
+     */
+    fun visible(decks: List<DeckInfo>, collapsed: Set<Long>): List<DeckInfo> {
+        val prefixes = decks
+            .filter { it.id in collapsed }
+            .map { it.name + DeckInfo.SEPARATOR }
+        if (prefixes.isEmpty()) return decks
+        return decks.filter { deck -> prefixes.none { deck.name.startsWith(it) } }
+    }
+
     /** Un paquet et tout ce qui pend en dessous. */
     fun familyOf(decks: List<DeckInfo>, deck: DeckInfo): List<DeckInfo> {
         val prefix = deck.name + DeckInfo.SEPARATOR

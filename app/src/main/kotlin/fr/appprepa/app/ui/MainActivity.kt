@@ -38,6 +38,7 @@ class MainActivity : ComponentActivity() {
                 var ankiMessage by remember { mutableStateOf("") }
                 var decks by remember { mutableStateOf(emptyList<DeckInfo>()) }
                 var selectedDecks by remember { mutableStateOf(settings.deckIds) }
+                var collapsedDecks by remember { mutableStateOf(settings.collapsedDeckIds) }
                 var debugTranscripts by remember { mutableStateOf(settings.debugTranscripts) }
 
                 // Les permissions sont demandees a l'arret, jamais en roulant.
@@ -92,6 +93,15 @@ class MainActivity : ComponentActivity() {
                     Screen.DECKS -> DeckScreen(
                         decks = decks,
                         selected = selectedDecks,
+                        collapsed = collapsedDecks,
+                        onFold = { id ->
+                            collapsedDecks = if (id in collapsedDecks) {
+                                collapsedDecks - id
+                            } else {
+                                collapsedDecks + id
+                            }
+                            settings.collapsedDeckIds = collapsedDecks
+                        },
                         onToggle = { id ->
                             selectedDecks = DeckSelection.toggle(decks, selectedDecks, id)
                             settings.deckIds = selectedDecks

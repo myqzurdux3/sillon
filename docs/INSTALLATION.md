@@ -131,6 +131,11 @@ de la façon dont AnkiDroid traite un identifiant de parent.
 Plusieurs paquets cochés se révisent **entrelacés** — une carte de Maths, une d'Info, une
 de Maths. Un trajet coupé en deux blocs thématiques réviserait mal.
 
+Un chevron apparaît à gauche des paquets qui ont des sous-paquets : il replie la famille
+quand la liste devient trop longue. Un paquet replié affiche alors le total de cartes dues
+**de toute sa famille**, pour que replier ne fasse pas disparaître les chiffres qui servent
+à choisir. Ce que tu replies est mémorisé, et replier ne change rien à ce qui est coché.
+
 Rien de coché veut dire tous les paquets.
 
 Juste en dessous, **Cartes par session** : 10, 20, 40, 60, ou tout. Des boutons plutôt

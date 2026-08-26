@@ -41,6 +41,14 @@ class SettingsStore(context: Context) {
             .putString(KEY_DECKS, value.joinToString(",")) 
             .apply()
 
+    /** Paquets replies dans l'ecran de choix. Memorise, sinon on replie a chaque fois. */
+    var collapsedDeckIds: Set<Long>
+        get() = prefs.getString(KEY_COLLAPSED, "").orEmpty()
+            .split(',')
+            .mapNotNull { it.trim().toLongOrNull() }
+            .toSet()
+        set(value) = prefs.edit().putString(KEY_COLLAPSED, value.joinToString(",")).apply()
+
     var cardLimit: Int
         get() = prefs.getInt(KEY_LIMIT, DEFAULT_LIMIT)
         set(value) = prefs.edit().putInt(KEY_LIMIT, value.coerceIn(1, ALL_CARDS)).apply()
@@ -68,6 +76,7 @@ class SettingsStore(context: Context) {
         private const val KEY_MODE = "write_mode"
         private const val KEY_DECKS = "deck_ids"
         private const val KEY_LIMIT = "card_limit"
+        private const val KEY_COLLAPSED = "collapsed_deck_ids"
         private const val KEY_DEBUG = "debug_transcripts"
         private const val KEY_FAST_JUDGE = "fast_judge"
     }

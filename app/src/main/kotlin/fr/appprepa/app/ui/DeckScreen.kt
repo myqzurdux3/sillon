@@ -34,11 +34,13 @@ import fr.appprepa.core.deck.DeckSelection
 fun DeckScreen(
     decks: List<DeckInfo>,
     selected: Set<Long>,
+    collapsed: Set<Long>,
     onToggle: (Long) -> Unit,
+    onFold: (Long) -> Unit,
     onClear: () -> Unit,
     onBack: () -> Unit,
 ) {
-    val ordered = DeckSelection.ordered(decks)
+    val ordered = DeckSelection.visible(DeckSelection.ordered(decks), collapsed)
     val total = DeckSelection.dueTotal(decks, selected)
 
     Column(
@@ -77,7 +79,17 @@ fun DeckScreen(
 
         LazyColumn(modifier = Modifier.fillMaxSize()) {
             items(ordered, key = { it.id }) { deck ->
-                DeckRow(deck, deck.id in selected) { onToggle(deck.id) }
+                val replie = deck.id in collapsed
+                DeckRow(
+                    deck = deck,
+                    checked = deck.id in selected,
+                    hasChildren = DeckSelection.hasChildren(decks, deck),
+                    collapsed = replie,
+                    // Replie, le paquet parle pour toute sa famille.
+                    shownDue = if (replie) DeckSelection.familyDue(decks, deck) else deck.dueCount,
+                    onToggle = { onToggle(deck.id) },
+                    onFold = { onFold(deck.id) },
+                )
             }
             item {
                 Spacer(Modifier.height(16.dp))
@@ -91,34 +103,62 @@ fun DeckScreen(
 }
 
 @Composable
-private fun DeckRow(deck: DeckInfo, checked: Boolean, onToggle: () -> Unit) {
+private fun DeckRow(
+    deck: DeckInfo,
+    checked: Boolean,
+    hasChildren: Boolean,
+    collapsed: Boolean,
+    shownDue: Int,
+    onToggle: () -> Unit,
+    onFold: () -> Unit,
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onToggle)
             .padding(vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.weight(1f),
+        ) {
             // L'indentation dit la hierarchie sans dessiner d'arbre.
             Spacer(Modifier.width((deck.depth * 20).dp))
+
+            // Le chevron n'existe que la ou il y a quelque chose a replier.
+            if (hasChildren) {
+                Text(
+                    text = if (collapsed) "▸" else "▾",
+                    color = SillonPalette.faint,
+                    fontSize = 16.sp,
+                    modifier = Modifier
+                        .clickable(onClick = onFold)
+                        .padding(horizontal = 6.dp, vertical = 4.dp),
+                )
+            } else {
+                Spacer(Modifier.width(24.dp))
+            }
+
+            Spacer(Modifier.width(4.dp))
             Text(
                 text = if (checked) "◼" else "◻",
                 color = if (checked) SillonPalette.accent else SillonPalette.faint,
                 fontSize = 17.sp,
+                modifier = Modifier.clickable(onClick = onToggle),
             )
             Spacer(Modifier.width(14.dp))
             Text(
                 text = deck.shortName,
                 fontSize = 17.sp,
                 color = MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier.clickable(onClick = onToggle),
             )
         }
         Text(
-            text = if (deck.dueCount > 0) "${deck.dueCount}" else "—",
+            text = if (shownDue > 0) "$shownDue" else "—",
             fontSize = 15.sp,
-            color = if (deck.dueCount > 0) SillonPalette.faint else SillonPalette.rule,
+            color = if (shownDue > 0) SillonPalette.faint else SillonPalette.rule,
         )
     }
 }
