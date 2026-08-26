@@ -22,6 +22,25 @@ class AndroidListener(private val context: Context) : Listener {
 
     private val main = Handler(Looper.getMainLooper())
 
+    companion object {
+        /**
+         * Verifie que l'ecoute est possible avant de partir. AnkiDroid et la synthese
+         * vocale sont deja controles au demarrage ; le micro ne l'etait pas, et une
+         * panne se confondait alors avec du silence pendant tout le trajet.
+         */
+        fun unavailableReason(context: Context): String? {
+            if (context.checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) !=
+                android.content.pm.PackageManager.PERMISSION_GRANTED
+            ) {
+                return "L'accès au micro n'a pas été autorisé."
+            }
+            if (!SpeechRecognizer.isRecognitionAvailable(context)) {
+                return "Aucun service de reconnaissance vocale n'est disponible sur ce téléphone."
+            }
+            return null
+        }
+    }
+
     override suspend fun listen(timeoutMs: Long): ListenResult =
         suspendCancellableCoroutine { continuation ->
             main.post {

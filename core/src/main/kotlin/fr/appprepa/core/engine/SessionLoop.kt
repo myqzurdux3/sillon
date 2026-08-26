@@ -116,7 +116,9 @@ class SessionLoop(
                 queue += when (result) {
                     is ListenResult.Transcript -> Event.Heard(result.text)
                     ListenResult.Silence -> Event.HeardNothing
-                    is ListenResult.Failure -> Event.HeardNothing
+                    // Un echec technique n'est pas un silence : le confondre ferait
+                    // defiler la session entiere en notant tout « a revoir ».
+                    is ListenResult.Failure -> Event.ListenFailed(result.cause)
                 }
             }
 

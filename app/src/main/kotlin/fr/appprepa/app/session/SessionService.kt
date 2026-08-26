@@ -67,6 +67,15 @@ class SessionService : Service() {
             return
         }
 
+        // Le micro se verifie a l'arret, comme le reste : jamais en plein trajet.
+        if (!settings.debugTranscripts) {
+            AndroidListener.unavailableReason(this)?.let { reason ->
+                holder.finish(SessionOutcome.Failed(reason))
+                stopSelf()
+                return
+            }
+        }
+
         val tts = AndroidSpeaker(this).also { speaker = it }
         if (!tts.awaitReady()) {
             holder.finish(

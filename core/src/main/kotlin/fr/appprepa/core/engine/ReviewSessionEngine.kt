@@ -24,6 +24,9 @@ object ReviewSessionEngine {
     /** Nombre de notes gardees en attente. A 1, on peut revenir d'une carte. */
     const val MAX_PENDING = 1
 
+    /** Deux echecs d'ecoute de suite : on arrete plutot que de defiler a l'aveugle. */
+    const val MAX_LISTEN_FAILURES = 2
+
     /** En mode degrade, l'utilisateur doit dicter sa note : il lui faut plus de temps. */
     const val SELF_GRADE_TIMEOUT_MS = 12_000L
 
@@ -38,6 +41,7 @@ object ReviewSessionEngine {
         Event.SpeechFinished -> onSpeechFinished(session, nowMs)
         is Event.Heard -> onHeard(session, event, nowMs)
         Event.HeardNothing -> onHeardNothing(session, nowMs)
+        is Event.ListenFailed -> onListenFailed(session, event, nowMs)
         is Event.Judged -> onJudged(session, event, nowMs)
         is Event.Explained -> onExplained(session, event, nowMs)
         is Event.TutorFailed -> onTutorFailed(session, nowMs)
@@ -150,7 +154,8 @@ object ReviewSessionEngine {
 
     private fun onHeard(session: Session, event: Event.Heard, nowMs: Long): Reduction =
         when (val state = session.state) {
-            is SessionState.Listening -> onAnswerHeard(session, state, event.transcript, nowMs)
+            is SessionState.Listening ->
+                onAnswerHeard(session.copy(listenFailures = 0), state, event.transcript, nowMs)
             is SessionState.AwaitingCorrection ->
                 onCorrectionHeard(session, state, event.transcript, nowMs)
             is SessionState.Revisiting -> onRevisitHeard(session, state, event.transcript, nowMs)
@@ -373,6 +378,44 @@ object ReviewSessionEngine {
             is SessionState.Revisiting -> resumeAfterRevisit(session, state, nowMs)
             else -> Reduction(session, emptyList())
         }
+
+    /**
+     * Le micro ne repond pas. On previent, on retente une fois, puis on s'arrete : mieux
+     * vaut une session interrompue qu'un trajet entier note « a revoir » en silence.
+     */
+    private fun onListenFailed(
+        session: Session,
+        event: Event.ListenFailed,
+        nowMs: Long,
+    ): Reduction {
+        val failures = session.listenFailures + 1
+        val inFlight = when (val state = session.state) {
+            is SessionState.Listening -> state.inFlight
+            is SessionState.AwaitingCorrection -> state.inFlight
+            is SessionState.Revisiting -> state.inFlight
+            else -> null
+        }
+
+        if (failures >= MAX_LISTEN_FAILURES || inFlight == null) {
+            val reason = "micro indisponible : ${event.cause}"
+            return Reduction(
+                session.copy(state = SessionState.Failed(reason), listenFailures = failures),
+                listOf(
+                    Effect.Speak("Je n'arrive pas à t'entendre. J'arrête la session."),
+                    Effect.Finish,
+                ),
+            )
+        }
+
+        return Reduction(
+            session.copy(
+                state = SessionState.Asking(inFlight),
+                listenFailures = failures,
+                retriedAnswer = true,
+            ),
+            listOf(Effect.Speak("Je ne t'entends pas. Vérifie le micro.")),
+        )
+    }
 
     private fun onExplained(session: Session, event: Event.Explained, nowMs: Long): Reduction {
         // Explication demandee dans une parenthese : on l'enonce, la reprise suit.

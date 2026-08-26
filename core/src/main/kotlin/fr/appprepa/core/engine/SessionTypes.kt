@@ -79,6 +79,13 @@ sealed interface Event {
     data object SpeechFinished : Event
     data class Heard(val transcript: String) : Event
     data object HeardNothing : Event
+
+    /**
+     * L'ecoute a echoue pour une raison technique — micro refuse, service de
+     * reconnaissance absent, reseau. A ne pas confondre avec un silence : l'un se
+     * relance, l'autre se signale.
+     */
+    data class ListenFailed(val cause: String) : Event
     data class Judged(val judgement: Judgement) : Event
     data class Explained(val text: String) : Event
 
@@ -125,6 +132,8 @@ data class Session(
     val writeMode: WriteMode = WriteMode.JOURNAL_ONLY,
     val deckId: Long? = null,
     val retriedAnswer: Boolean = false,
+    /** Echecs d'ecoute consecutifs. Remis a zero des qu'une reponse est entendue. */
+    val listenFailures: Int = 0,
     /** Nombre de cartes exploitables chargees au depart. */
     val total: Int = 0,
 ) {
