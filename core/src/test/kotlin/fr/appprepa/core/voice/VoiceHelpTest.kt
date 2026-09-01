@@ -1,5 +1,6 @@
 package fr.appprepa.core.voice
 
+import fr.appprepa.core.model.Langue
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -23,6 +24,28 @@ class VoiceHelpTest {
                     VoiceCommandParser.parse(phrase),
                 )
             }
+        }
+    }
+
+    @Test
+    fun `chaque tournure anglaise annoncee est reconnue par le parseur`() {
+        VoiceHelp.ENTREES.forEach { entree ->
+            entree.phrasesAnglaises.forEach { phrase ->
+                assertEquals(
+                    "« $phrase » est annonce pour « ${entree.action} »",
+                    entree.commande,
+                    VoiceCommandParser.parse(phrase, Langue.ANGLAIS),
+                )
+            }
+        }
+    }
+
+    @Test
+    fun `chaque entree annonce ses deux vocabulaires`() {
+        // Une entree sans tournure anglaise laisserait croire que la commande n'existe
+        // pas sur les paquets anglais.
+        VoiceHelp.ENTREES.forEach {
+            assertTrue("« ${it.action} » n'a pas de tournure anglaise", it.phrasesAnglaises.isNotEmpty())
         }
     }
 

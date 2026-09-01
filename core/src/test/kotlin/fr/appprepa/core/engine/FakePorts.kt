@@ -1,5 +1,6 @@
 package fr.appprepa.core.engine
 
+import fr.appprepa.core.model.Langue
 import fr.appprepa.core.ports.ListenKind
 import fr.appprepa.core.deck.DeckInfo
 import fr.appprepa.core.deck.DeckMerge
@@ -65,6 +66,7 @@ class FakeTutor(
         expectedPoints: List<String>,
         transcript: String,
         memory: SessionMemory,
+        langueCorrection: Langue,
     ): Judgement {
         if (card.noteId in failOn) error("panne simulee")
         transcripts += transcript
@@ -72,22 +74,36 @@ class FakeTutor(
         return Judgement(verdict, Ease.fromVerdict(verdict), "retour", null, "theme")
     }
 
-    override suspend fun explain(card: ReviewCard) = "explication de ${card.noteId}"
+    override suspend fun explain(card: ReviewCard, langueCorrection: Langue) =
+        "explication de ${card.noteId}"
 }
 
 class FakeSpeaker : Speaker {
     val spoken = mutableListOf<String>()
-    override suspend fun speak(text: String) { spoken += text }
+
+    /** La langue de chaque enonce : c'est elle qui choisit la voix sur l'appareil. */
+    val langues = mutableListOf<Langue>()
+
+    override suspend fun speak(text: String, langue: Langue) {
+        spoken += text
+        langues += langue
+    }
+
     override fun stop() = Unit
 }
 
 /** Rend les transcripts dans l'ordre ; `null` signifie silence. */
 class ScriptedListener(private val script: MutableList<String?>) : Listener {
-    override suspend fun listen(kind: ListenKind, timeoutMs: Long): ListenResult =
-        when (val next = script.removeFirstOrNull()) {
+    /** La langue de chaque ecoute : c'est elle qui regle le moteur de reconnaissance. */
+    val langues = mutableListOf<Langue>()
+
+    override suspend fun listen(kind: ListenKind, timeoutMs: Long, langue: Langue): ListenResult {
+        langues += langue
+        return when (val next = script.removeFirstOrNull()) {
             null -> ListenResult.Silence
             else -> ListenResult.Transcript(next)
         }
+    }
 }
 
 class FakeJournal : Journal {

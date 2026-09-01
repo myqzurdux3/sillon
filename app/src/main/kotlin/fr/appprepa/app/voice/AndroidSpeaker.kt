@@ -5,6 +5,7 @@ import android.media.AudioAttributes
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import android.speech.tts.Voice
+import fr.appprepa.core.model.Langue
 import fr.appprepa.core.ports.Speaker
 import kotlinx.coroutines.CompletableDeferred
 import java.util.Locale
@@ -15,6 +16,8 @@ class AndroidSpeaker(
     context: Context,
     /** Vitesse d'elocution, 1 = celle du moteur. Reglable : c'est une affaire de gout. */
     private val speechRate: Float = DEFAULT_RATE,
+    /** L'accent anglais vise, quand une carte anglaise est enoncee. */
+    private val accentAnglais: Locale = Locale.UK,
 ) : Speaker {
 
     private val initialized = CompletableDeferred<Boolean>()
@@ -31,7 +34,20 @@ class AndroidSpeaker(
         initialized.complete(status == TextToSpeech.SUCCESS)
     }
 
-    /** La voix retenue, pour l'afficher dans les reglages. Nulle avant [awaitReady]. */
+    /**
+     * La meilleure voix trouvee pour chaque langue, choisie une fois pour toutes.
+     *
+     * Le classement parcourt toutes les voix installees du moteur, ce qui n'est pas
+     * gratuit : le refaire a chaque enonce ajouterait ce cout au debut de chaque carte,
+     * exactement la ou l'utilisateur attend deja.
+     */
+    private val voix = ConcurrentHashMap<Langue, Voice>()
+
+    /** La langue actuellement posee sur le moteur, pour ne pas la reposer pour rien. */
+    @Volatile
+    private var langueCourante: Langue? = null
+
+    /** La voix francaise retenue, pour l'afficher dans les reglages. */
     @Volatile
     var voiceName: String? = null
         private set
@@ -72,8 +88,34 @@ class AndroidSpeaker(
 
         engine.setSpeechRate(speechRate)
         engine.setPitch(PITCH)
-        chooseVoice()
+        Langue.entries.forEach { chooseVoice(it) }
+        voiceName = voix[Langue.FRANCAIS]?.name
+        // Le francais est la langue de depart : la poser ici evite de la poser au
+        // premier enonce, dans le silence qui suit deja le demarrage.
+        applyLangue(Langue.FRANCAIS)
         return true
+    }
+
+    /** La locale du moteur pour une langue de carte. */
+    private fun locale(langue: Langue): Locale = when (langue) {
+        Langue.FRANCAIS -> Locale.FRANCE
+        Langue.ANGLAIS -> accentAnglais
+    }
+
+    /**
+     * Bascule le moteur, si besoin seulement. Poser la voix a chaque enonce marche, mais
+     * `setVoice` recharge le modele : sur une session monolingue, ce serait un cout paye
+     * a chaque carte pour rien.
+     */
+    private fun applyLangue(langue: Langue) {
+        if (langueCourante == langue) return
+        val choisie = voix[langue]
+        if (choisie != null) {
+            engine.setVoice(choisie)
+        } else {
+            engine.setLanguage(locale(langue))
+        }
+        langueCourante = langue
     }
 
     /**
@@ -87,25 +129,31 @@ class AndroidSpeaker(
      * Une voix un cran en dessous qui parle toujours vaut mieux que la plus belle qui
      * s'interrompt sur l'autoroute.
      */
-    private fun chooseVoice() {
-        val francaises = runCatching { engine.voices }.getOrNull()
-            ?.filter { it.locale.language == Locale.FRENCH.language }
+    private fun chooseVoice(langue: Langue) {
+        val cible = locale(langue)
+        val candidates = runCatching { engine.voices }.getOrNull()
+            ?.filter { it.locale.language == cible.language }
             ?.filterNot { TextToSpeech.Engine.KEY_FEATURE_NOT_INSTALLED in it.features }
             ?.takeIf { it.isNotEmpty() }
             ?: return
 
+        // L'accent demande passe avant tout : une voix americaine vaut mieux qu'une voix
+        // britannique mieux notee quand c'est l'americain qu'on veut entendre. A defaut,
+        // n'importe quelle voix de la langue fait l'affaire.
+        val accent = candidates.filter { it.locale.country == cible.country }
+        val retenues = accent.ifEmpty { candidates }
+
         // Une voix plus rapide a demarrer departage deux voix de meme qualite : c'est
         // autant de silence en moins entre la fin de la reponse et le verdict.
         val classement = compareBy<Voice> { it.quality }.thenBy { -it.latency }
-        val embarquees = francaises.filterNot { it.isNetworkConnectionRequired }
-        val best = (embarquees.ifEmpty { francaises }).maxWith(classement)
-
-        if (engine.setVoice(best) == TextToSpeech.SUCCESS) voiceName = best.name
+        val embarquees = retenues.filterNot { it.isNetworkConnectionRequired }
+        voix[langue] = (embarquees.ifEmpty { retenues }).maxWith(classement)
     }
 
     /** Ne rend la main qu'a la fin reelle de l'enonce. */
-    override suspend fun speak(text: String) {
+    override suspend fun speak(text: String, langue: Langue) {
         if (!initialized.await()) return
+        applyLangue(langue)
         val id = "u${counter.getAndIncrement()}"
         val done = CompletableDeferred<Unit>()
         pending[id] = done

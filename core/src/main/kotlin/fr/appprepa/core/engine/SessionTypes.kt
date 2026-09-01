@@ -6,6 +6,7 @@ import fr.appprepa.core.model.JournalRecord
 import fr.appprepa.core.model.ReformulatedQuestion
 import fr.appprepa.core.model.ReviewCard
 import fr.appprepa.core.model.SessionMemory
+import fr.appprepa.core.model.Langue
 import fr.appprepa.core.model.SessionStats
 import fr.appprepa.core.model.WriteMode
 import fr.appprepa.core.ports.ListenKind
@@ -104,8 +105,12 @@ sealed interface Event {
 }
 
 sealed interface Effect {
-    data class Speak(val text: String) : Effect
-    data class Listen(val kind: ListenKind, val timeoutMs: Long) : Effect
+    data class Speak(val text: String, val langue: Langue = Langue.FRANCAIS) : Effect
+    data class Listen(
+        val kind: ListenKind,
+        val timeoutMs: Long,
+        val langue: Langue = Langue.FRANCAIS,
+    ) : Effect
     data class LoadCards(val deckIds: Set<Long>, val limit: Int) : Effect
     data class Reformulate(val card: ReviewCard, val memory: SessionMemory) : Effect
     data class Judge(
@@ -113,8 +118,13 @@ sealed interface Effect {
         val expectedPoints: List<String>,
         val transcript: String,
         val memory: SessionMemory,
+        /** La langue du retour parle. Celle de la question suit toujours la carte. */
+        val langueCorrection: Langue = Langue.FRANCAIS,
     ) : Effect
-    data class Explain(val card: ReviewCard) : Effect
+    data class Explain(
+        val card: ReviewCard,
+        val langueCorrection: Langue = Langue.FRANCAIS,
+    ) : Effect
     /** Ecrit la note dans Anki *et* la porte au journal, succes ou refus. */
     data class Commit(val pending: PendingAnswer) : Effect
 
@@ -146,6 +156,13 @@ data class Session(
     val listenFailures: Int = 0,
     /** Nombre de cartes exploitables chargees au depart. */
     val total: Int = 0,
+    /**
+     * Corriger toujours en francais, meme sur une carte anglaise. Affaire de gout : on
+     * apprend dans sa langue de raisonnement, mais entendre la correction dans la langue
+     * travaillee fait aussi partie du travail. La question, elle, reste toujours dans la
+     * langue de la carte — la lire avec la mauvaise voix la rendrait inecoutable.
+     */
+    val correctionEnFrancais: Boolean = true,
 ) {
     /**
      * Rang de la carte en cours : « carte 7 sur 32 ». Deduit de ce qu'il reste dans la

@@ -12,6 +12,11 @@ data class ReviewCard(
     /** Nombre de boutons de reponse, 2 a 4 selon la carte. */
     val buttonCount: Int,
     val hasMedia: Boolean,
+    /**
+     * La langue du paquet dont vient la carte. Elle regle le micro, la voix et le
+     * vocabulaire des commandes pendant qu'on repond a cette carte.
+     */
+    val langue: Langue = Langue.FRANCAIS,
 )
 
 enum class Verdict { CORRECT, PARTIEL, FAUX }

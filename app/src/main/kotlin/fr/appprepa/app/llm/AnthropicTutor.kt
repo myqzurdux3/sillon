@@ -9,6 +9,7 @@ import com.anthropic.models.beta.messages.BetaThinkingConfigDisabled
 import com.anthropic.models.beta.messages.MessageCreateParams
 import fr.appprepa.core.memory.SessionMemoryBuilder
 import fr.appprepa.core.model.Judgement
+import fr.appprepa.core.model.Langue
 import fr.appprepa.core.model.ReformulatedQuestion
 import fr.appprepa.core.model.ReviewCard
 import fr.appprepa.core.model.SessionMemory
@@ -54,6 +55,9 @@ class AnthropicTutor(
     ): ReformulatedQuestion = Prompts.parseReformulation(
         ask(
             prompt = Prompts.reformulate(card, SessionMemoryBuilder.render(memory)),
+            // La question suit toujours la carte : la reformuler dans une autre langue la
+            // rendrait inutilisable, quel que soit le reglage des corrections.
+            system = Prompts.system(card.langue),
             model = MODEL,
             reflechit = true,
             maxTokens = MAX_TOKENS_REFORMULATION,
@@ -65,6 +69,7 @@ class AnthropicTutor(
         expectedPoints: List<String>,
         transcript: String,
         memory: SessionMemory,
+        langueCorrection: Langue,
     ): Judgement = Prompts.parseJudgement(
         ask(
             prompt = Prompts.judge(
@@ -72,7 +77,9 @@ class AnthropicTutor(
                 expectedPoints,
                 transcript,
                 SessionMemoryBuilder.render(memory),
+                langueCorrection,
             ),
+            system = Prompts.system(card.langue),
             model = judgeModel,
             reflechit = false,
             maxTokens = MAX_TOKENS_VERDICT,
@@ -80,14 +87,16 @@ class AnthropicTutor(
         buttonCount = card.buttonCount,
     )
 
-    override suspend fun explain(card: ReviewCard): String = Prompts.parseSpokenFeedback(
-        ask(
-            prompt = Prompts.explain(card),
-            model = judgeModel,
-            reflechit = false,
-            maxTokens = MAX_TOKENS_VERDICT,
-        ),
-    )
+    override suspend fun explain(card: ReviewCard, langueCorrection: Langue): String =
+        Prompts.parseSpokenFeedback(
+            ask(
+                prompt = Prompts.explain(card, langueCorrection),
+                system = Prompts.system(card.langue),
+                model = judgeModel,
+                reflechit = false,
+                maxTokens = MAX_TOKENS_VERDICT,
+            ),
+        )
 
     /**
      * Vrai tant que le mode rapide n'a pas ete refuse. Le quota du mode rapide est
@@ -98,25 +107,27 @@ class AnthropicTutor(
 
     private suspend fun ask(
         prompt: String,
+        system: String,
         model: String,
         reflechit: Boolean,
         maxTokens: Long,
     ): String = withContext(Dispatchers.IO) {
         val rapide = fast && rapideOuvert.get() && supportsFastMode(model)
         val texte = try {
-            send(prompt, model, reflechit, maxTokens, rapide)
+            send(prompt, system, model, reflechit, maxTokens, rapide)
         } catch (limite: RateLimitException) {
             // Saturer le quota rapide ne doit pas arreter la seance : on repart en
             // vitesse normale, et on cesse de redemander pour le reste du trajet.
             if (!rapide) throw limite
             rapideOuvert.set(false)
-            send(prompt, model, reflechit, maxTokens, rapide = false)
+            send(prompt, system, model, reflechit, maxTokens, rapide = false)
         }
         texte.ifBlank { throw IllegalStateException("reponse vide du modele") }
     }
 
     private fun send(
         prompt: String,
+        system: String,
         model: String,
         reflechit: Boolean,
         maxTokens: Long,
@@ -125,7 +136,7 @@ class AnthropicTutor(
         val builder = MessageCreateParams.builder()
             .model(model)
             .maxTokens(maxTokens)
-            .system(Prompts.SYSTEM)
+            .system(system)
             .addUserMessage(prompt)
 
         // Haiku 4.5 ne connait ni l'effort ni la configuration de reflexion : les poser

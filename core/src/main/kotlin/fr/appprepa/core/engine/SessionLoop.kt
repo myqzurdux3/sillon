@@ -33,6 +33,8 @@ class SessionLoop(
     private val journal: Journal,
     private val clock: Clock,
     private val writeMode: WriteMode,
+    /** Corriger en francais meme sur une carte anglaise. Voir [Session.correctionEnFrancais]. */
+    private val correctionEnFrancais: Boolean = true,
 ) {
     private val _state = MutableStateFlow<SessionState>(SessionState.Idle)
     val state: StateFlow<SessionState> = _state.asStateFlow()
@@ -41,7 +43,10 @@ class SessionLoop(
     private val _progress = MutableStateFlow(0 to 0)
     val progress: StateFlow<Pair<Int, Int>> = _progress.asStateFlow()
 
-    private var session = Session(writeMode = writeMode)
+    private var session = Session(
+        writeMode = writeMode,
+        correctionEnFrancais = correctionEnFrancais,
+    )
     private val queue = ArrayDeque<Event>()
     private val prefetchJobs = mutableListOf<Job>()
 
@@ -69,7 +74,10 @@ class SessionLoop(
     }
 
     suspend fun run(deckIds: Set<Long>, limit: Int): SessionStats = coroutineScope {
-        session = Session(writeMode = writeMode)
+        session = Session(
+            writeMode = writeMode,
+            correctionEnFrancais = correctionEnFrancais,
+        )
         stopRequested = false
         writeFailures = 0
         queue.clear()
@@ -126,12 +134,12 @@ class SessionLoop(
             }.getOrElse { Event.Fatal(it.message ?: "lecture AnkiDroid impossible") }
 
             is Effect.Speak -> {
-                if (!stopRequested) speaker.speak(effect.text)
+                if (!stopRequested) speaker.speak(effect.text, effect.langue)
                 queue += Event.SpeechFinished
             }
 
             is Effect.Listen -> {
-                val awaited = scope.async { listener.listen(effect.kind, effect.timeoutMs) }
+                val awaited = scope.async { listener.listen(effect.kind, effect.timeoutMs, effect.langue) }
                 currentListen = awaited
                 val result = try {
                     awaited.await()
@@ -173,12 +181,13 @@ class SessionLoop(
                         effect.expectedPoints,
                         effect.transcript,
                         effect.memory,
+                        effect.langueCorrection,
                     ),
                 )
             }.getOrElse { Event.TutorFailed(it.message ?: "jugement impossible") }
 
             is Effect.Explain -> queue += runCatching {
-                Event.Explained(tutor.explain(effect.card))
+                Event.Explained(tutor.explain(effect.card, effect.langueCorrection))
             }.getOrElse { Event.TutorFailed(it.message ?: "explication impossible") }
 
             // Ecriture et trace vont ensemble : c'est le seul moyen que le journal dise

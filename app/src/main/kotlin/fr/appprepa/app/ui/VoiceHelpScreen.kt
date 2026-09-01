@@ -54,6 +54,12 @@ fun VoiceHelpScreen(onBack: () -> Unit) {
             style = MaterialTheme.typography.bodySmall,
             color = SillonPalette.faint,
         )
+        Spacer(Modifier.height(12.dp))
+        Text(
+            VoiceHelp.REGLE_ANGLAIS,
+            style = MaterialTheme.typography.bodySmall,
+            color = SillonPalette.faint,
+        )
 
         Spacer(Modifier.height(28.dp))
 
@@ -63,6 +69,7 @@ fun VoiceHelpScreen(onBack: () -> Unit) {
                 fenetre = entree.fenetre.libelle,
                 principale = entree.phrases.first(),
                 autres = entree.phrases.drop(1),
+                anglaises = entree.phrasesAnglaises,
             )
             Spacer(Modifier.height(24.dp))
         }
@@ -84,6 +91,7 @@ private fun Commande(
     fenetre: String,
     principale: String,
     autres: List<String>,
+    anglaises: List<String>,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Row(
@@ -108,6 +116,16 @@ private fun Commande(
         if (autres.isNotEmpty()) {
             Text(
                 text = autres.joinToString(" · "),
+                style = MaterialTheme.typography.bodySmall,
+                color = SillonPalette.faint,
+            )
+        }
+
+        // Sur un paquet anglais, ce sont les seules qui marchent : le micro y ecoute en
+        // anglais et ne transcrira jamais le mot francais.
+        if (anglaises.isNotEmpty()) {
+            Text(
+                text = "EN  " + anglaises.joinToString(" · "),
                 style = MaterialTheme.typography.bodySmall,
                 color = SillonPalette.faint,
             )

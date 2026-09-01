@@ -8,6 +8,7 @@ import android.os.Looper
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
+import fr.appprepa.core.model.Langue
 import fr.appprepa.core.ports.ListenKind
 import fr.appprepa.core.ports.ListenResult
 import fr.appprepa.core.ports.Listener
@@ -20,7 +21,15 @@ import kotlin.coroutines.resume
  * `SpeechRecognizer` doit etre cree et pilote depuis le thread principal ; l'adaptateur
  * s'en charge et n'expose qu'une fonction suspendue.
  */
-class AndroidListener(private val context: Context) : Listener {
+class AndroidListener(
+    private val context: Context,
+    /**
+     * L'accent anglais vise. Il ne change pas la langue reconnue, mais le modele
+     * acoustique : un moteur regle sur l'americain transcrit mal un accent britannique
+     * marque, et inversement.
+     */
+    private val accentAnglais: Locale = Locale.UK,
+) : Listener {
 
     private val main = Handler(Looper.getMainLooper())
 
@@ -67,7 +76,17 @@ class AndroidListener(private val context: Context) : Listener {
         }
     }
 
-    override suspend fun listen(kind: ListenKind, timeoutMs: Long): ListenResult =
+    /** Le francais de France, ou l'accent anglais choisi dans les reglages. */
+    private fun locale(langue: Langue): Locale = when (langue) {
+        Langue.FRANCAIS -> Locale.FRANCE
+        Langue.ANGLAIS -> accentAnglais
+    }
+
+    override suspend fun listen(
+        kind: ListenKind,
+        timeoutMs: Long,
+        langue: Langue,
+    ): ListenResult =
         suspendCancellableCoroutine { continuation ->
             main.post {
                 if (!SpeechRecognizer.isRecognitionAvailable(context)) {
@@ -127,7 +146,7 @@ class AndroidListener(private val context: Context) : Listener {
                         RecognizerIntent.EXTRA_LANGUAGE_MODEL,
                         RecognizerIntent.LANGUAGE_MODEL_FREE_FORM,
                     )
-                    putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.FRENCH.toLanguageTag())
+                    putExtra(RecognizerIntent.EXTRA_LANGUAGE, locale(langue).toLanguageTag())
                     putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
                     putExtra(
                         RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS,

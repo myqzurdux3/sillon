@@ -1,5 +1,6 @@
 package fr.appprepa.app.session
 
+import fr.appprepa.core.model.Langue
 import fr.appprepa.core.ports.ListenKind
 import fr.appprepa.core.ports.ListenResult
 import fr.appprepa.core.ports.Listener
@@ -19,7 +20,7 @@ class DebugListener : Listener {
         inbox.send(text)
     }
 
-    override suspend fun listen(kind: ListenKind, timeoutMs: Long): ListenResult =
+    override suspend fun listen(kind: ListenKind, timeoutMs: Long, langue: Langue): ListenResult =
         when (val text = withTimeoutOrNull(timeoutMs) { inbox.receive() }) {
             null -> ListenResult.Silence
             else -> if (text.isBlank()) ListenResult.Silence else ListenResult.Transcript(text)

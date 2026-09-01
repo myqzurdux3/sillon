@@ -4,6 +4,7 @@ import fr.appprepa.core.deck.DeckInfo
 import fr.appprepa.core.model.Ease
 import fr.appprepa.core.model.Judgement
 import fr.appprepa.core.model.JournalRecord
+import fr.appprepa.core.model.Langue
 import fr.appprepa.core.model.ReformulatedQuestion
 import fr.appprepa.core.model.ReviewCard
 import fr.appprepa.core.model.SessionMemory
@@ -29,13 +30,20 @@ interface Tutor {
         expectedPoints: List<String>,
         transcript: String,
         memory: SessionMemory,
+        langueCorrection: Langue = Langue.FRANCAIS,
     ): Judgement
-    suspend fun explain(card: ReviewCard): String
+    suspend fun explain(card: ReviewCard, langueCorrection: Langue = Langue.FRANCAIS): String
 }
 
-/** Synthese vocale. [speak] ne rend la main qu'a la fin de l'enonce. */
+/**
+ * Synthese vocale. [speak] ne rend la main qu'a la fin de l'enonce.
+ *
+ * La langue est portee par chaque enonce, et non fixee a la construction : une session
+ * melange des cartes francaises et anglaises, et la question d'une carte anglaise lue par
+ * une voix francaise est inecoutable.
+ */
 interface Speaker {
-    suspend fun speak(text: String)
+    suspend fun speak(text: String, langue: Langue = Langue.FRANCAIS)
     fun stop()
 }
 
@@ -45,7 +53,6 @@ sealed interface ListenResult {
     data class Failure(val cause: String) : ListenResult
 }
 
-/** Reconnaissance vocale. */
 /**
  * Les deux fenetres d'ecoute. Elles n'attendent pas la meme chose : une reponse est une
  * phrase que l'on cherche parfois, une correction est un mot que l'on connait deja.
@@ -53,8 +60,15 @@ sealed interface ListenResult {
  */
 enum class ListenKind { ANSWER, CORRECTION }
 
+/**
+ * Reconnaissance vocale.
+ *
+ * [langue] n'a pas de valeur par defaut, volontairement : l'oublier reglerait le micro sur
+ * le francais sans rien signaler, et une reponse anglaise ainsi transcrite ressemble a une
+ * reponse fausse, pas a une panne.
+ */
 interface Listener {
-    suspend fun listen(kind: ListenKind, timeoutMs: Long): ListenResult
+    suspend fun listen(kind: ListenKind, timeoutMs: Long, langue: Langue): ListenResult
 }
 
 interface Journal {

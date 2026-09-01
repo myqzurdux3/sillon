@@ -6,6 +6,7 @@ import android.net.Uri
 import androidx.core.net.toUri
 import fr.appprepa.core.deck.DeckInfo
 import fr.appprepa.core.deck.DeckMerge
+import fr.appprepa.core.deck.DeckLanguage
 import fr.appprepa.core.deck.DeckSelection
 import fr.appprepa.core.text.Html
 import fr.appprepa.core.model.Ease
@@ -22,7 +23,15 @@ import org.json.JSONArray
  * La table `schedule` donne les cartes dues mais **pas** leur texte ; il faut une seconde
  * requete sur `notes/<id>/cards/<ord>` pour obtenir recto et verso.
  */
-class AnkiDroidGateway(private val resolver: ContentResolver) : AnkiGateway {
+class AnkiDroidGateway(
+    private val resolver: ContentResolver,
+    /**
+     * Les paquets a ecouter en anglais, ou `null` quand l'utilisateur n'a rien choisi :
+     * le nom du paquet decide alors. C'est une fonction et non un ensemble parce que la
+     * liste des paquets n'est connue qu'ici, au moment de la lecture.
+     */
+    private val englishDeckIds: () -> Set<Long>? = { null },
+) : AnkiGateway {
 
     /**
      * Chaque paquet coche est interroge separement, puis les resultats sont entrelaces.
@@ -38,6 +47,9 @@ class AnkiDroidGateway(private val resolver: ContentResolver) : AnkiGateway {
         withContext(Dispatchers.IO) {
             val decks = decksBlocking()
             val names = decks.associate { it.id to it.name }
+            // La langue se decide ici, une fois, et voyage ensuite avec la carte : le
+            // moteur n'a plus a savoir ce qu'est un paquet pour regler le micro.
+            val anglophones = DeckLanguage.anglophones(decks, englishDeckIds())
 
             // Un identifiant de paquet supprime depuis le dernier reglage ne doit pas
             // consommer une requete pour rien, ni raccourcir la session en silence.
@@ -59,6 +71,7 @@ class AnkiDroidGateway(private val resolver: ContentResolver) : AnkiGateway {
                         answer = text.answer,
                         buttonCount = due.buttonCount,
                         hasMedia = due.hasMedia,
+                        langue = DeckLanguage.langueDe(text.deckId, anglophones),
                     )
                 }
         }

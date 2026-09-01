@@ -4,6 +4,7 @@ import android.content.Context
 import android.media.AudioAttributes
 import android.media.AudioFocusRequest
 import android.media.AudioManager
+import fr.appprepa.core.model.Langue
 import fr.appprepa.core.ports.Speaker
 import kotlinx.coroutines.CompletableDeferred
 
@@ -79,9 +80,9 @@ class FocusAwareSpeaker(
     private val delegate: Speaker,
     private val guard: AudioFocusGuard,
 ) : Speaker {
-    override suspend fun speak(text: String) {
+    override suspend fun speak(text: String, langue: Langue) {
         guard.awaitResume()
-        delegate.speak(text)
+        delegate.speak(text, langue)
     }
 
     override fun stop() = delegate.stop()

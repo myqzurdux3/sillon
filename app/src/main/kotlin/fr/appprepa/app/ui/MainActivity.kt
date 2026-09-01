@@ -18,13 +18,14 @@ import fr.appprepa.app.journal.JsonlJournal
 import fr.appprepa.app.session.SessionService
 import fr.appprepa.app.settings.SettingsStore
 import fr.appprepa.core.deck.DeckInfo
+import fr.appprepa.core.deck.DeckLanguage
 import fr.appprepa.core.deck.DeckSelection
 import fr.appprepa.core.model.JournalRecord
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
 
-private enum class Screen { HOME, SETTINGS, DECKS, JOURNAL, VOICE_HELP }
+private enum class Screen { HOME, SETTINGS, DECKS, LANGUES, JOURNAL, VOICE_HELP }
 
 class MainActivity : ComponentActivity() {
 
@@ -43,6 +44,9 @@ class MainActivity : ComponentActivity() {
                 var selectedDecks by remember { mutableStateOf(settings.deckIds) }
                 var collapsedDecks by remember { mutableStateOf(settings.collapsedDeckIds) }
                 var debugTranscripts by remember { mutableStateOf(settings.debugTranscripts) }
+                var englishDecks by remember { mutableStateOf(settings.englishDeckIds) }
+                var accent by remember { mutableStateOf(settings.accentAnglais) }
+                var correctionFr by remember { mutableStateOf(settings.correctionEnFrancais) }
 
                 // Les permissions sont demandees a l'arret, jamais en roulant.
                 val permissions = rememberLauncherForActivityResult(
@@ -66,7 +70,10 @@ class MainActivity : ComponentActivity() {
                     // Les compteurs changent a chaque revision : on les relit a l'ouverture.
                     // Interroger AnkiDroid traverse deux processus : cela se fait ici, une
                     // fois par ouverture d'ecran, et jamais dans le corps d'un composable.
-                    if (screen == Screen.DECKS || screen == Screen.SETTINGS) {
+                    if (screen == Screen.DECKS ||
+                        screen == Screen.LANGUES ||
+                        screen == Screen.SETTINGS
+                    ) {
                         decks = withContext(Dispatchers.IO) {
                             runCatching { AnkiDroidGateway(contentResolver).decks() }
                                 .getOrDefault(emptyList())
@@ -86,7 +93,8 @@ class MainActivity : ComponentActivity() {
                 // depuis l'accueil.
                 BackHandler(enabled = screen != Screen.HOME) {
                     screen = when (screen) {
-                        Screen.DECKS, Screen.JOURNAL, Screen.VOICE_HELP -> Screen.SETTINGS
+                        Screen.DECKS, Screen.LANGUES, Screen.JOURNAL, Screen.VOICE_HELP ->
+                            Screen.SETTINGS
                         else -> Screen.HOME
                     }
                 }
@@ -104,6 +112,7 @@ class MainActivity : ComponentActivity() {
                         ankiMessage = ankiMessage,
                         deckSummary = deckSummary(decks, selectedDecks),
                         onOpenDecks = { screen = Screen.DECKS },
+                        onOpenLangues = { screen = Screen.LANGUES },
                         onOpenJournal = { screen = Screen.JOURNAL },
                         onOpenVoiceHelp = { screen = Screen.VOICE_HELP },
                         onBack = { screen = Screen.HOME },
@@ -128,6 +137,39 @@ class MainActivity : ComponentActivity() {
                         onClear = {
                             selectedDecks = emptySet()
                             settings.deckIds = emptySet()
+                        },
+                        onBack = { screen = Screen.SETTINGS },
+                    )
+
+                    Screen.LANGUES -> LanguesScreen(
+                        decks = decks,
+                        anglais = DeckLanguage.anglophones(decks, englishDecks),
+                        devine = englishDecks == null,
+                        collapsed = collapsedDecks,
+                        accent = accent,
+                        correctionEnFrancais = correctionFr,
+                        onFold = { id ->
+                            collapsedDecks = if (id in collapsedDecks) {
+                                collapsedDecks - id
+                            } else {
+                                collapsedDecks + id
+                            }
+                            settings.collapsedDeckIds = collapsedDecks
+                        },
+                        onToggle = { id ->
+                            // Le premier clic fige ce qui etait devine : sans cela, cocher
+                            // un paquet effacerait tous les autres d'un coup.
+                            val depart = DeckLanguage.anglophones(decks, englishDecks)
+                            englishDecks = DeckSelection.toggle(decks, depart, id)
+                            settings.englishDeckIds = englishDecks
+                        },
+                        onAccent = {
+                            accent = it
+                            settings.accentAnglais = it
+                        },
+                        onCorrection = {
+                            correctionFr = it
+                            settings.correctionEnFrancais = it
                         },
                         onBack = { screen = Screen.SETTINGS },
                     )

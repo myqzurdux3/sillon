@@ -25,6 +25,12 @@ object VoiceHelp {
         val fenetre: Fenetre,
         /** La commande attendue : c'est ce que le test confronte au parseur. */
         val commande: VoiceCommand,
+        /**
+         * Les memes, sur un paquet anglais. Le micro y ecoute en anglais : « répète » n'y
+         * sera jamais transcrit, donc la notice doit dire les deux ou l'utilisateur
+         * croira que les commandes ne marchent pas sur ces paquets.
+         */
+        val phrasesAnglaises: List<String> = emptyList(),
     )
 
     val ENTREES: List<Entree> = listOf(
@@ -33,66 +39,77 @@ object VoiceHelp {
             listOf("à revoir", "encore", "raté", "faux", "mauvais"),
             Fenetre.CORRECTION,
             VoiceCommand.Correct(fr.appprepa.core.model.Ease.AGAIN),
+            listOf("again", "wrong", "missed"),
         ),
         Entree(
             "Noter « difficile »",
             listOf("difficile", "dur", "trop dur", "chaud", "moyen"),
             Fenetre.CORRECTION,
             VoiceCommand.Correct(fr.appprepa.core.model.Ease.HARD),
+            listOf("hard", "difficult", "tough"),
         ),
         Entree(
             "Noter « bien »",
             listOf("bien", "correct", "juste", "exact", "ok", "oui"),
             Fenetre.CORRECTION,
             VoiceCommand.Correct(fr.appprepa.core.model.Ease.GOOD),
+            listOf("good", "right", "yes"),
         ),
         Entree(
             "Noter « facile »",
             listOf("facile", "évident", "trop facile", "par cœur"),
             Fenetre.CORRECTION,
             VoiceCommand.Correct(fr.appprepa.core.model.Ease.EASY),
+            listOf("easy", "obvious", "by heart"),
         ),
         Entree(
             "Réentendre la question, ou le verdict",
             listOf("répète", "répète la question", "j'ai pas entendu", "redis"),
             Fenetre.LES_DEUX,
             VoiceCommand.Repeat,
+            listOf("repeat", "say it again", "I didn't catch that"),
         ),
         Entree(
             "Passer la carte sans la noter",
             listOf("passe", "passe la carte", "suivante", "saute"),
             Fenetre.REPONSE,
             VoiceCommand.Skip,
+            listOf("skip", "next", "skip this card"),
         ),
         Entree(
             "Se faire donner la réponse",
             listOf("explique", "explique moi", "je sèche", "je bloque", "je ne sais pas"),
             Fenetre.REPONSE,
             VoiceCommand.Explain,
+            listOf("explain", "I don't know", "no idea"),
         ),
         Entree(
             "Revenir sur la carte précédente",
             listOf("reviens", "reviens en arrière", "la précédente", "retour"),
             Fenetre.LES_DEUX,
             VoiceCommand.Revisit,
+            listOf("go back", "previous card"),
         ),
         Entree(
             "Se faire réexpliquer la précédente",
             listOf("explique la précédente", "c'était quoi déjà", "explique avant"),
             Fenetre.LES_DEUX,
             VoiceCommand.RevisitExplain,
+            listOf("what was that", "explain previous"),
         ),
         Entree(
             "Jeter la note de la carte précédente",
             listOf("annule", "annule ça", "oublie"),
             Fenetre.LES_DEUX,
             VoiceCommand.Undo,
+            listOf("undo", "cancel", "forget it"),
         ),
         Entree(
             "Terminer la session",
             listOf("stop", "arrête tout", "terminé", "pause"),
             Fenetre.LES_DEUX,
             VoiceCommand.Stop,
+            listOf("stop", "quit", "pause"),
         ),
     )
 
@@ -105,6 +122,11 @@ object VoiceHelp {
     const val REGLE = "Une commande doit ouvrir ta phrase et rester courte. Tu peux la dire " +
         "naturellement — « répète la question », « tu peux répéter » — mais " +
         "« je ne suis pas sûr, passe » reste une réponse. Les notes, elles, se disent d'un mot."
+
+    /** La regle propre aux paquets anglais, qui surprend si on ne la connait pas. */
+    const val REGLE_ANGLAIS = "Sur un paquet réglé en anglais, le micro écoute en anglais : " +
+        "c'est « repeat », pas « répète ». Les deux vocabulaires ne se mélangent jamais, " +
+        "sinon la moitié des réponses déclencheraient une commande dans l'autre langue."
 
     /** Ce qui n'est pas une commande mais se dit quand meme. */
     const val NOTE_PAUSE = "« pause » termine la session comme « stop » : il n'y a pas de reprise."

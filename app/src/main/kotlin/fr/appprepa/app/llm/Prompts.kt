@@ -2,6 +2,7 @@ package fr.appprepa.app.llm
 
 import fr.appprepa.core.model.Ease
 import fr.appprepa.core.model.Judgement
+import fr.appprepa.core.model.Langue
 import fr.appprepa.core.model.ReformulatedQuestion
 import fr.appprepa.core.model.ReviewCard
 import fr.appprepa.core.model.Verdict
@@ -24,6 +25,30 @@ object Prompts {
     const val MAX_SPOKEN_WORDS_CORRECT = 12
 
     private val json = Json { ignoreUnknownKeys = true; isLenient = true }
+
+    /**
+     * Le systeme dit dans quelle langue **enoncer**. Il ne change rien au fait que le
+     * modele lise du francais dans le prompt : c'est la sortie qui est bilingue, pas
+     * l'entree. Une consigne francaise produit un anglais plus sur qu'une consigne
+     * anglaise approximative.
+     */
+    fun system(langue: Langue): String = when (langue) {
+        Langue.FRANCAIS -> SYSTEM
+        Langue.ANGLAIS -> SYSTEM.replace(CONSIGNE_FR, CONSIGNE_EN)
+    }
+
+    private const val CONSIGNE_FR =
+        "Tu parles français, en phrases courtes, sans jamais lister ni énumérer à voix haute."
+
+    /**
+     * Sur une carte anglaise, tout ce qui sera lu a voix haute doit etre anglais — la
+     * question comme le retour. Une question anglaise reformulee en francais serait
+     * inutilisable, et une question bilingue serait lue par une seule voix.
+     */
+    private const val CONSIGNE_EN =
+        "Tout ce que tu écris et qui sera lu à voix haute doit être en ANGLAIS, en " +
+            "phrases courtes, sans jamais lister ni énumérer. C'est une carte d'anglais : " +
+            "la question, le retour et la correction s'énoncent en anglais."
 
     val SYSTEM = """
         Tu fais réviser des cartes Anki à l'oral, à quelqu'un qui conduit.
@@ -66,6 +91,7 @@ object Prompts {
         expectedPoints: List<String>,
         transcript: String,
         memoryText: String,
+        langueCorrection: Langue = Langue.FRANCAIS,
     ): String = buildString {
         appendLine("Question posée : ${card.question}")
         appendLine("Réponse de référence : ${card.answer}")
@@ -93,6 +119,8 @@ object Prompts {
               Une remarque courte et actionnable. Sinon null.
             topic : le thème de la carte, deux ou trois mots.
 
+            ${consigneLangue(langueCorrection)}
+
             Réponds par :
             {"verdict":"...","ease":0,"spoken_feedback":"...",
              "formulation_note":null,"topic":"..."}
@@ -100,14 +128,27 @@ object Prompts {
         )
     }
 
-    fun explain(card: ReviewCard): String =
+    fun explain(card: ReviewCard, langueCorrection: Langue = Langue.FRANCAIS): String =
         """
         Question : ${card.question}
         Réponse : ${card.answer}
 
         L'élève sèche. Explique-lui la réponse à voix haute, en $MAX_SPOKEN_WORDS mots maximum,
-        en allant à l'essentiel. Réponds par : {"spoken_feedback": "..."}
+        en allant à l'essentiel.
+        ${consigneLangue(langueCorrection)}
+        Réponds par : {"spoken_feedback": "..."}
         """.trimIndent()
+
+    /**
+     * La langue de `spoken_feedback`, reglable independamment de celle de la carte : on
+     * peut vouloir travailler l'anglais et s'entendre corriger en francais.
+     */
+    private fun consigneLangue(langue: Langue): String = when (langue) {
+        Langue.FRANCAIS ->
+            "spoken_feedback s'écrit en FRANÇAIS, même si la carte est en anglais. " +
+                "Garde en anglais les termes de la carte qu'il faut citer, rien d'autre."
+        Langue.ANGLAIS -> "spoken_feedback s'écrit en ANGLAIS, entièrement."
+    }
 
     fun parseReformulation(raw: String): ReformulatedQuestion {
         val obj = extractObject(raw)

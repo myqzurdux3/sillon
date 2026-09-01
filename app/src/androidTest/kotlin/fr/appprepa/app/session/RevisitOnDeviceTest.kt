@@ -1,5 +1,6 @@
 package fr.appprepa.app.session
 
+import fr.appprepa.core.model.Langue
 import fr.appprepa.core.ports.ListenKind
 import fr.appprepa.core.deck.DeckInfo
 import fr.appprepa.core.engine.SessionLoop
@@ -56,12 +57,12 @@ class RevisitOnDeviceTest {
 
     private class Mute : Speaker {
         val said = mutableListOf<String>()
-        override suspend fun speak(text: String) { said += text }
+        override suspend fun speak(text: String, langue: Langue) { said += text }
         override fun stop() = Unit
     }
 
     private class Script(private val lines: MutableList<String?>) : Listener {
-        override suspend fun listen(kind: ListenKind, timeoutMs: Long): ListenResult =
+        override suspend fun listen(kind: ListenKind, timeoutMs: Long, langue: Langue): ListenResult =
             when (val next = lines.removeFirstOrNull()) {
                 null -> ListenResult.Silence
                 else -> ListenResult.Transcript(next)

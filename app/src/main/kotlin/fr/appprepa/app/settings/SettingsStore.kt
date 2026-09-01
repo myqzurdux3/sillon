@@ -13,6 +13,16 @@ import fr.appprepa.core.model.WriteMode
 const val ALL_CARDS = 200
 
 /**
+ * L'accent anglais vise. Ce n'est pas une coquetterie : le moteur de reconnaissance
+ * change de modele acoustique avec le pays, et un francais qui parle anglais scolaire
+ * est mieux transcrit par l'un que par l'autre.
+ */
+enum class AccentAnglais(val libelle: String, val locale: java.util.Locale) {
+    BRITANNIQUE("britannique", java.util.Locale.UK),
+    AMERICAIN("américain", java.util.Locale.US),
+}
+
+/**
  * La cle d'API est un secret : preferences chiffrees, jamais de fichier versionne.
  *
  * `EncryptedSharedPreferences` est depreciee depuis 2025 et sans remplacant direct chez
@@ -81,6 +91,44 @@ class SettingsStore(context: Context) {
             putFloat(KEY_RATE, value.coerceIn(AndroidSpeaker.MIN_RATE, AndroidSpeaker.MAX_RATE))
         }
 
+    /**
+     * Les paquets a ecouter en anglais. `null` tant que l'ecran n'a jamais ete valide :
+     * le nom du paquet decide alors, voir `DeckLanguage`. Une fois valide, un ensemble
+     * vide est une reponse legitime — « aucun paquet en anglais » — que l'absence de
+     * reglage ne saurait pas distinguer d'un reglage jamais touche.
+     */
+    var englishDeckIds: Set<Long>?
+        get() = if (!prefs.getBoolean(KEY_LANG_SET, false)) {
+            null
+        } else {
+            prefs.getString(KEY_ENGLISH_DECKS, "").orEmpty()
+                .split(',')
+                .mapNotNull { it.trim().toLongOrNull() }
+                .toSet()
+        }
+        set(value) = prefs.edit {
+            putBoolean(KEY_LANG_SET, value != null)
+            putString(KEY_ENGLISH_DECKS, value.orEmpty().joinToString(","))
+        }
+
+    /**
+     * L'accent anglais vise. Il regle a la fois la voix et le modele acoustique du micro :
+     * un moteur cale sur l'americain transcrit mal un britannique marque.
+     */
+    var accentAnglais: AccentAnglais
+        get() = runCatching { AccentAnglais.valueOf(prefs.getString(KEY_ACCENT, null) ?: "") }
+            .getOrDefault(AccentAnglais.BRITANNIQUE)
+        set(value) = prefs.edit { putString(KEY_ACCENT, value.name) }
+
+    /**
+     * Corriger en francais meme sur une carte anglaise. Par defaut oui : on apprend dans
+     * sa langue de raisonnement. La question, elle, reste toujours dans la langue de la
+     * carte — ce reglage ne la touche pas.
+     */
+    var correctionEnFrancais: Boolean
+        get() = prefs.getBoolean(KEY_CORRECTION_FR, true)
+        set(value) = prefs.edit { putBoolean(KEY_CORRECTION_FR, value) }
+
     /** Repondre au clavier au lieu du micro, pour la mise au point. */
     var debugTranscripts: Boolean
         get() = prefs.getBoolean(KEY_DEBUG, false)
@@ -102,5 +150,9 @@ class SettingsStore(context: Context) {
         private const val KEY_DEBUG = "debug_transcripts"
         private const val KEY_FAST_JUDGE = "fast_judge"
         private const val KEY_RATE = "speech_rate"
+        private const val KEY_ENGLISH_DECKS = "english_deck_ids"
+        private const val KEY_LANG_SET = "langues_configurees"
+        private const val KEY_ACCENT = "accent_anglais"
+        private const val KEY_CORRECTION_FR = "correction_en_francais"
     }
 }

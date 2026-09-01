@@ -92,6 +92,14 @@ Une commande doit **ouvrir** ta phrase et rester courte. Tu peux la dire naturel
 sûr, passe » compte comme une réponse. Les notes, elles, se disent d'un mot : élargir
 « bien » ou « faux » ferait passer des réponses pour des notes.
 
+**Les paquets en anglais sont écoutés en anglais.** Le nom du paquet décide au départ
+(« Anglais », « English »), et **Réglages → Langues des paquets** laisse trancher ligne
+par ligne. Sur ces paquets les commandes se disent en anglais — « repeat », « skip »,
+« again » — parce que le micro y écoute en anglais et ne transcrira jamais « répète ». Se
+tromper de langue ne provoque aucune erreur visible : la réponse est transcrite en
+charabia et notée fausse. La correction, elle, reste en français par défaut ; la question
+suit toujours la carte.
+
 **Chercher ses mots ne coupe pas la réponse.** Si la phrase s'arrête sur un mot qui appelle
 une suite — « la dérivée de ce produit vaut *donc* » —, l'application dit « continue, je
 t'écoute » et recolle les deux morceaux avant de juger. Un silence après la relance vaut

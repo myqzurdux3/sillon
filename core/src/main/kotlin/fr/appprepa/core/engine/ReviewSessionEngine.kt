@@ -3,11 +3,13 @@ package fr.appprepa.core.engine
 import fr.appprepa.core.memory.SessionMemoryBuilder
 import fr.appprepa.core.model.Ease
 import fr.appprepa.core.model.JournalRecord
+import fr.appprepa.core.model.Langue
 import fr.appprepa.core.model.ReviewCard
 import fr.appprepa.core.model.Judgement
 import fr.appprepa.core.model.Verdict
 import fr.appprepa.core.model.WriteMode
 import fr.appprepa.core.text.MathSpeech
+import fr.appprepa.core.text.Phrases
 import fr.appprepa.core.text.Utterance
 import fr.appprepa.core.ports.ListenKind
 import fr.appprepa.core.voice.VoiceCommand
@@ -31,6 +33,22 @@ object ReviewSessionEngine {
 
     /** En mode degrade, l'utilisateur doit dicter sa note : il lui faut plus de temps. */
     const val SELF_GRADE_TIMEOUT_MS = 12_000L
+
+    // --- les trois langues d'une session ---------------------------------
+    //
+    // La carte, la correction, et l'application. Les melanger dans un meme enonce est le
+    // seul defaut qu'on ne peut pas rattraper : une synthese vocale ne parle qu'une langue
+    // a la fois, et lire un verso anglais avec une voix francaise le rend inintelligible.
+
+    /** La langue de la carte : sa question, et le micro pendant qu'on y repond. */
+    private fun langueCarte(inFlight: CardInFlight): Langue = inFlight.card.langue
+
+    /**
+     * La langue du verdict, et donc de la fenetre de correction qui le suit : c'est dans
+     * cette langue que l'utilisateur dira « bien » ou « good ».
+     */
+    private fun langueVerdict(session: Session, inFlight: CardInFlight): Langue =
+        if (session.correctionEnFrancais) Langue.FRANCAIS else inFlight.card.langue
 
     fun reduce(session: Session, event: Event, nowMs: Long): Reduction = when (event) {
         is Event.Start -> Reduction(
@@ -96,7 +114,7 @@ object ReviewSessionEngine {
             )
             return Reduction(
                 session.copy(state = SessionState.Asking(inFlight), retriedAnswer = false, askedToContinue = false),
-                listOf(Effect.Speak(event.question.question)),
+                listOf(Effect.Speak(event.question.question, langueCarte(inFlight))),
             )
         }
         // Sinon c'est un prechargement : on le range pour la carte suivante.
@@ -121,7 +139,11 @@ object ReviewSessionEngine {
                     // carte suivante n'aurait pas lieu pendant que l'utilisateur parle.
                     listOfNotNull(
                         prefetchEffect,
-                        Effect.Listen(ListenKind.ANSWER, ANSWER_TIMEOUT_MS),
+                        Effect.Listen(
+                            ListenKind.ANSWER,
+                            ANSWER_TIMEOUT_MS,
+                            langueCarte(state.inFlight),
+                        ),
                     ),
                 )
             }
@@ -131,7 +153,16 @@ object ReviewSessionEngine {
                     // L'explication vient d'etre enoncee : on referme et on reprend.
                     resumeAfterRevisit(session, state, nowMs)
                 } else {
-                    Reduction(session, listOf(Effect.Listen(ListenKind.CORRECTION, REVISIT_TIMEOUT_MS)))
+                    Reduction(
+                        session,
+                        listOf(
+                            Effect.Listen(
+                                ListenKind.CORRECTION,
+                                REVISIT_TIMEOUT_MS,
+                                state.target.card.langue,
+                            ),
+                        ),
+                    )
                 }
 
             is SessionState.SpeakingVerdict -> Reduction(
@@ -142,18 +173,38 @@ object ReviewSessionEngine {
                         state.transcript,
                     ),
                 ),
-                listOf(Effect.Listen(ListenKind.CORRECTION, correctionTimeout(state.assessment))),
+                listOf(
+                    Effect.Listen(
+                        ListenKind.CORRECTION,
+                        correctionTimeout(state.assessment),
+                        langueVerdict(session, state.inFlight),
+                    ),
+                ),
             )
 
             // Un enonce qui n'a pas change d'etat — un refus, une repetition — doit rendre
             // l'oreille. Sans effet, la boucle vide sa file et la session s'arrete en
             // silence au milieu du trajet.
-            is SessionState.Listening ->
-                Reduction(session, listOf(Effect.Listen(ListenKind.ANSWER, ANSWER_TIMEOUT_MS)))
+            is SessionState.Listening -> Reduction(
+                session,
+                listOf(
+                    Effect.Listen(
+                        ListenKind.ANSWER,
+                        ANSWER_TIMEOUT_MS,
+                        langueCarte(state.inFlight),
+                    ),
+                ),
+            )
 
             is SessionState.AwaitingCorrection -> Reduction(
                 session,
-                listOf(Effect.Listen(ListenKind.CORRECTION, correctionTimeout(state.assessment))),
+                listOf(
+                    Effect.Listen(
+                        ListenKind.CORRECTION,
+                        correctionTimeout(state.assessment),
+                        langueVerdict(session, state.inFlight),
+                    ),
+                ),
             )
 
             else -> Reduction(session, emptyList())
@@ -196,14 +247,17 @@ object ReviewSessionEngine {
 
         val state = SessionState.Revisiting(inFlight, target, explaining)
         return if (explaining) {
-            Reduction(session.copy(state = state), listOf(Effect.Explain(target.card)))
+            Reduction(session.copy(state = state), listOf(Effect.Explain(target.card, langueVerdict(session, inFlight))))
         } else {
             Reduction(
                 session.copy(state = state),
                 listOf(
                     Effect.Speak(
-                        "Carte précédente : ${MathSpeech.verbalize(target.card.question)}. " +
-                            "Tu mets quoi, ou tu veux que j'explique ?",
+                        Phrases.cartePrecedente(
+                            target.card.langue,
+                            MathSpeech.verbalize(target.card.question),
+                        ),
+                        target.card.langue,
                     ),
                 ),
             )
@@ -215,7 +269,11 @@ object ReviewSessionEngine {
         state: SessionState.Revisiting,
         transcript: String,
         nowMs: Long,
-    ): Reduction = when (val command = VoiceCommandParser.parse(transcript)) {
+        // La parenthese a recite la carte precedente : c'est dans sa langue que
+        // l'utilisateur repond, pas dans celle de la carte en cours.
+    ): Reduction = when (
+        val command = VoiceCommandParser.parse(transcript, state.target.card.langue)
+    ) {
         is VoiceCommand.Correct -> resumeAfterRevisit(
             regrade(session, state.target, command.ease),
             state,
@@ -224,7 +282,7 @@ object ReviewSessionEngine {
 
         VoiceCommand.Explain, VoiceCommand.RevisitExplain -> Reduction(
             session.copy(state = state.copy(explaining = true)),
-            listOf(Effect.Explain(state.target.card)),
+            listOf(Effect.Explain(state.target.card, langueVerdict(session, state.inFlight))),
         )
 
         VoiceCommand.Undo -> {
@@ -273,7 +331,7 @@ object ReviewSessionEngine {
         nowMs: Long,
     ): Reduction = Reduction(
         session.copy(state = SessionState.Asking(state.inFlight), retriedAnswer = false, askedToContinue = false),
-        listOf(Effect.Speak(state.inFlight.question)),
+        listOf(Effect.Speak(state.inFlight.question, langueCarte(state.inFlight))),
     )
 
     private fun onAnswerHeard(
@@ -281,7 +339,7 @@ object ReviewSessionEngine {
         state: SessionState.Listening,
         transcript: String,
         nowMs: Long,
-    ): Reduction = when (VoiceCommandParser.parse(transcript)) {
+    ): Reduction = when (VoiceCommandParser.parse(transcript, langueCarte(state.inFlight))) {
         VoiceCommand.Stop -> finish(session, nowMs)
 
         // Reposer la question remet le compteur de patience a zero : la relance et la
@@ -292,7 +350,7 @@ object ReviewSessionEngine {
                 retriedAnswer = false,
                 askedToContinue = false,
             ),
-            listOf(Effect.Speak(state.inFlight.question)),
+            listOf(Effect.Speak(state.inFlight.question, langueCarte(state.inFlight))),
         )
 
         VoiceCommand.Skip -> advance(
@@ -307,7 +365,7 @@ object ReviewSessionEngine {
 
         VoiceCommand.Explain -> Reduction(
             session.copy(state = SessionState.Judging(state.inFlight, transcript)),
-            listOf(Effect.Explain(state.inFlight.card)),
+            listOf(Effect.Explain(state.inFlight.card, langueVerdict(session, state.inFlight))),
         )
 
         VoiceCommand.Revisit -> openRevisit(session, state.inFlight, explaining = false)
@@ -333,14 +391,21 @@ object ReviewSessionEngine {
         transcript: String,
         nowMs: Long,
     ): Reduction {
-        if (!session.askedToContinue && Utterance.looksUnfinished(transcript)) {
+        if (!session.askedToContinue &&
+            Utterance.looksUnfinished(transcript, langueCarte(state.inFlight))
+        ) {
             return Reduction(
                 session.copy(
                     state = SessionState.Listening(state.inFlight, transcript),
                     askedToContinue = true,
                 ),
                 // L'etat ne change pas : la fin de cet enonce rouvre l'ecoute.
-                listOf(Effect.Speak("Continue, je t'écoute.")),
+                listOf(
+                    Effect.Speak(
+                        Phrases.continue_(langueCarte(state.inFlight)),
+                        langueCarte(state.inFlight),
+                    ),
+                ),
             )
         }
 
@@ -355,6 +420,7 @@ object ReviewSessionEngine {
                         expectedPoints = state.inFlight.expectedPoints,
                         transcript = transcript,
                         memory = session.memory,
+                        langueCorrection = langueVerdict(session, state.inFlight),
                     ),
                 ),
             )
@@ -366,12 +432,23 @@ object ReviewSessionEngine {
         state: SessionState.AwaitingCorrection,
         transcript: String,
         nowMs: Long,
-    ): Reduction = when (val command = VoiceCommandParser.parse(transcript)) {
+    ): Reduction = when (
+        val command =
+            VoiceCommandParser.parse(transcript, langueVerdict(session, state.inFlight))
+    ) {
         is VoiceCommand.Correct -> settle(session, state, command.ease, nowMs)
 
         // Redire le verdict, sans le figer : l'etat ne bouge pas, donc la fin de l'enonce
         // rouvre la meme fenetre de correction.
-        VoiceCommand.Repeat -> Reduction(session, listOf(Effect.Speak(verdictText(state))))
+        VoiceCommand.Repeat -> Reduction(
+            session,
+            listOf(
+                Effect.Speak(
+                    verdictText(session, state),
+                    langueVerdict(session, state.inFlight),
+                ),
+            ),
+        )
 
         VoiceCommand.Revisit -> openRevisit(session, state.inFlight, explaining = false)
         VoiceCommand.RevisitExplain -> openRevisit(session, state.inFlight, explaining = true)
@@ -418,12 +495,22 @@ object ReviewSessionEngine {
     }
 
     /** Ce qui a ete annonce apres la reponse, pour pouvoir le redire tel quel. */
-    private fun verdictText(state: SessionState.AwaitingCorrection): String =
+    private fun verdictText(session: Session, state: SessionState.AwaitingCorrection): String =
         when (val assessment = state.assessment) {
-            is Assessment.Judged ->
-                "${assessment.judgement.spokenFeedback} Je mets ${label(assessment.judgement.ease)}."
-            is Assessment.SelfGrade -> selfGradeText(assessment.answerText)
+            is Assessment.Judged -> annonce(
+                assessment.judgement.spokenFeedback,
+                assessment.judgement.ease,
+                langueVerdict(session, state.inFlight),
+            )
+            // L'auto-notation recite le verso : elle suit la langue de la carte, pas celle
+            // de la correction. Un verso anglais lu par une voix francaise est perdu.
+            is Assessment.SelfGrade ->
+                selfGradeText(assessment.answerText, langueCarte(state.inFlight))
         }
+
+    /** Le retour parle, suivi de la note proposee. */
+    private fun annonce(feedback: String, ease: Ease, langue: Langue): String =
+        "$feedback ${Phrases.jeMets(langue, ease)}"
 
     private fun onHeardNothing(session: Session, nowMs: Long): Reduction =
         when (val state = session.state) {
@@ -438,13 +525,21 @@ object ReviewSessionEngine {
                             state = SessionState.Asking(state.inFlight),
                             retriedAnswer = true,
                         ),
-                        listOf(Effect.Speak("Je t'écoute.")),
+                        listOf(
+                            Effect.Speak(
+                                Phrases.jecoute(langueCarte(state.inFlight)),
+                                langueCarte(state.inFlight),
+                            ),
+                        ),
                     )
                 } else {
+                    // Cet enonce recite le verso : il suit la langue de la carte, meme
+                    // si les corrections sont reglees en francais.
+                    val langue = langueCarte(state.inFlight)
                     val giveUp = Judgement(
                         verdict = Verdict.FAUX,
                         ease = Ease.AGAIN,
-                        spokenFeedback = "Pas de réponse. " +
+                        spokenFeedback = Phrases.pasDeReponse(langue) + " " +
                             MathSpeech.verbalize(state.inFlight.card.answer),
                         formulationNote = null,
                         topic = null,
@@ -457,7 +552,7 @@ object ReviewSessionEngine {
                                 "",
                             ),
                         ),
-                        listOf(Effect.Speak(giveUp.spokenFeedback)),
+                        listOf(Effect.Speak(giveUp.spokenFeedback, langue)),
                     )
                 }
 
@@ -529,7 +624,12 @@ object ReviewSessionEngine {
                     state.transcript,
                 ),
             ),
-            listOf(Effect.Speak("${event.text} Je mets à revoir.")),
+            listOf(
+                Effect.Speak(
+                    annonce(event.text, Ease.AGAIN, langueVerdict(session, state.inFlight)),
+                    langueVerdict(session, state.inFlight),
+                ),
+            ),
         )
     }
 
@@ -575,12 +675,17 @@ object ReviewSessionEngine {
                     transcript,
                 ),
             ),
-            listOf(Effect.Speak(selfGradeText(inFlight.card.answer))),
+            listOf(
+                Effect.Speak(
+                    selfGradeText(inFlight.card.answer, inFlight.card.langue),
+                    inFlight.card.langue,
+                ),
+            ),
         )
 
     /** Le verso enonce, suivi de la demande de note. Redit tel quel par « repete ». */
-    private fun selfGradeText(answer: String): String =
-        MathSpeech.verbalize(answer) + " Tu mets à revoir, difficile, bien ou facile ?"
+    private fun selfGradeText(answer: String, langue: Langue): String =
+        MathSpeech.verbalize(answer) + " " + Phrases.autoNotation(langue)
 
     private fun onJudged(session: Session, event: Event.Judged, nowMs: Long): Reduction {
         val state = session.state as? SessionState.Judging ?: return Reduction(session, emptyList())
@@ -595,7 +700,16 @@ object ReviewSessionEngine {
                     state.transcript,
                 ),
             ),
-            listOf(Effect.Speak("${bounded.spokenFeedback} Je mets ${label(bounded.ease)}.")),
+            listOf(
+                Effect.Speak(
+                    annonce(
+                        bounded.spokenFeedback,
+                        bounded.ease,
+                        langueVerdict(session, state.inFlight),
+                    ),
+                    langueVerdict(session, state.inFlight),
+                ),
+            ),
         )
     }
 

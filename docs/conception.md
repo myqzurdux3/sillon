@@ -156,12 +156,12 @@ speech-to-speech temps réel soit un remplacement d'implémentation et non une r
 
 ```kotlin
 interface Speaker {
-    suspend fun speak(text: String)               // rend la main à la fin de l'énoncé
+    suspend fun speak(text: String, langue: Langue)  // rend la main à la fin de l'énoncé
     fun stop()
 }
 
 interface Listener {
-    suspend fun listen(kind: ListenKind, timeoutMs: Long): ListenResult
+    suspend fun listen(kind: ListenKind, timeoutMs: Long, langue: Langue): ListenResult
 }
 ```
 
@@ -178,6 +178,38 @@ Implémentation v1 : `TextToSpeech` et `SpeechRecognizer` d'Android, en françai
 d'interruption de la parole de l'IA en v1 — la commande « répète » couvre le besoin réel
 à moindre risque.
 
+### Les trois langues d'une session
+
+Une session mélange des paquets français et anglais. Trois langues y cohabitent, et les
+confondre dans un même énoncé est le seul défaut qu'on ne peut pas rattraper : une
+synthèse vocale ne parle qu'une langue à la fois.
+
+| | Suit | Pourquoi |
+|---|---|---|
+| **La carte** — sa question, la relance, le micro pendant la réponse, le vocabulaire des commandes | Le paquet | Une réponse anglaise écoutée par un moteur réglé sur le français est transcrite en charabia, jugée fausse, et la carte défile. La panne est silencieuse et se confond avec de l'ignorance |
+| **La correction** — le retour parlé, la note annoncée, la fenêtre où on la corrige | Un réglage, français par défaut | On apprend dans sa langue de raisonnement ; mais entendre la correction dans la langue travaillée fait aussi partie du travail |
+| **L'application** — « Aucune carte à réviser », « J'annule la note précédente » | Toujours le français | C'est l'application qui parle d'elle-même, pas de la carte |
+
+Une exception au tableau, et elle prime : **un énoncé qui récite le verso suit la carte**,
+quel que soit le réglage des corrections. Lire un verso anglais avec une voix française le
+rend inintelligible, et c'est le cas du mode dégradé comme de l'abandon après deux
+silences. Le réglage ne s'applique qu'à ce que le modèle rédige.
+
+`ReviewCard` porte sa `Langue`, posée une fois par la passerelle depuis le paquet
+d'origine. Le moteur n'a donc jamais à savoir ce qu'est un paquet pour régler le micro.
+
+Quels paquets sont anglophones se décide en deux temps : tant que l'écran de choix n'a pas
+été validé, le nom du paquet décide — « Anglais », « English », descendance comprise —
+pour que la première session marche sans réglage préalable. Une fois validé, la coche fait
+foi, y compris pour dire « aucun », que le nom ne saurait pas exprimer.
+
+**Le vocabulaire des commandes suit la carte**, parce que le micro la suit : sur un paquet
+anglais, « répète » ne sera jamais transcrit. Les deux vocabulaires ne sont jamais
+consultés ensemble — sinon la moitié des réponses déclencheraient une commande dans
+l'autre langue. Ils n'ont pas non plus la même tolérance : un verbe de commande est cru en
+tête d'une phrase de deux mots en français, d'un seul en anglais, où les mots de commande
+sont aussi des noms courants (« a stop consonant », « back formation »).
+
 ### Choix de la voix
 
 Le moteur retient la première voix française venue, souvent la plus pauvre. L'adaptateur
@@ -185,6 +217,15 @@ classe les voix installées par qualité déclarée, puis par latence de démarr
 **écarte les voix réseau** tant qu'il existe une voix embarquée : une voix réseau ajoute
 un aller-retour à chaque énoncé et se tait dans un tunnel — le moteur signale alors une
 erreur, l'application enchaîne sans un mot, et la séance continue à l'aveugle.
+
+Le classement tourne une fois par langue au démarrage, pas à chaque énoncé : il parcourt
+toutes les voix installées, et payer ce coût au début de chaque carte reviendrait à
+l'ajouter là où l'utilisateur attend déjà. La bascule d'une carte à l'autre ne repose la
+voix que si la langue change.
+
+L'accent anglais visé — britannique ou américain — passe avant la qualité déclarée : une
+voix américaine vaut mieux qu'une britannique mieux notée quand c'est l'américain qu'on
+veut entendre. Il règle aussi le modèle acoustique du micro.
 
 Le débit par défaut des moteurs français est calé sur la lecture d'un écran. Il est monté
 à 1,15 et reste réglable dans l'application, entre 0,8 et 1,6.

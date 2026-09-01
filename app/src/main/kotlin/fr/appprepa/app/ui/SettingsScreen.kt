@@ -45,6 +45,7 @@ fun SettingsScreen(
     ankiMessage: String,
     deckSummary: String,
     onOpenDecks: () -> Unit,
+    onOpenLangues: () -> Unit,
     onOpenJournal: () -> Unit,
     onOpenVoiceHelp: () -> Unit,
     onBack: () -> Unit,
@@ -209,6 +210,13 @@ fun SettingsScreen(
         )
 
         HorizontalDivider(thickness = 1.dp, color = SillonPalette.rule)
+        TextButton(onClick = onOpenLangues) {
+            Text(
+                "Langues des paquets",
+                color = MaterialTheme.colorScheme.onBackground,
+                fontSize = 16.sp,
+            )
+        }
         TextButton(onClick = onOpenVoiceHelp) {
             Text(
                 "Ce que tu peux dire",

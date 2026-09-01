@@ -89,7 +89,8 @@ class SessionService : Service() {
             }
         }
 
-        val tts = AndroidSpeaker(this, settings.speechRate).also { speaker = it }
+        val tts = AndroidSpeaker(this, settings.speechRate, settings.accentAnglais.locale)
+            .also { speaker = it }
         if (!tts.awaitReady()) {
             holder.finish(
                 SessionOutcome.Failed("La synthèse vocale française n'est pas disponible."),
@@ -102,7 +103,7 @@ class SessionService : Service() {
         val guard = AudioFocusGuard(this) { loop?.requestStop() }
 
         val session = SessionLoop(
-            gateway = AnkiDroidGateway(contentResolver),
+            gateway = AnkiDroidGateway(contentResolver) { settings.englishDeckIds },
             tutor = AnthropicTutor(
                 apiKey = settings.apiKey,
                 judgeModel = if (settings.fastJudge) {
@@ -115,13 +116,14 @@ class SessionService : Service() {
             listener = if (settings.debugTranscripts) {
                 DebugListener.shared
             } else {
-                AndroidListener(this)
+                AndroidListener(this, settings.accentAnglais.locale)
             },
             journal = JsonlJournal(File(filesDir, "journal.jsonl")),
             clock = object : Clock {
                 override fun nowMs() = System.currentTimeMillis()
             },
             writeMode = settings.writeMode,
+            correctionEnFrancais = settings.correctionEnFrancais,
         )
         loop = session
 

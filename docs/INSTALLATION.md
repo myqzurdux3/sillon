@@ -217,6 +217,34 @@ l'API, pas supposé. S'il est ouvert un jour, le code sait déjà s'en servir �
 passer `fast` à `true` dans `AnthropicTutor`, et il retombe tout seul en vitesse normale
 si le quota se referme.
 
+## Les paquets en anglais
+
+L'application écoute dans la langue du paquet. Ce n'est pas un détail de confort : une
+réponse anglaise entendue par un moteur réglé sur le français n'est pas refusée, elle est
+**transcrite en charabia et notée fausse**. La panne se confond avec de l'ignorance.
+
+Au premier lancement, le nom décide : un paquet qui s'appelle « Anglais » ou « English »
+est écouté en anglais, ses sous-paquets avec lui. **Réglages → Langues des paquets**
+montre ce qui a été deviné et laisse trancher, paquet par paquet, avec la marque `FR` ou
+`EN` à droite de chaque ligne. Dès que tu y touches, c'est ton choix qui fait foi — y
+compris « aucun paquet en anglais », qu'un nom ne saurait pas exprimer.
+
+Sur un paquet anglais, **les commandes se disent en anglais** : « repeat », « skip »,
+« explain », « again », « good ». Le micro écoute en anglais, il ne transcrira jamais
+« répète ». La notice de l'application donne les deux vocabulaires, ligne par ligne.
+
+Deux réglages accompagnent ça, sur le même écran :
+
+**L'accent**, britannique ou américain. Il règle la voix *et* le micro — le moteur de
+reconnaissance change de modèle acoustique avec le pays, et celui qui te comprend le mieux
+n'est pas forcément celui que tu préfères entendre.
+
+**La langue de la correction**, en français par défaut, ou celle de la carte. La question
+reste toujours dans la langue de la carte : ce réglage ne touche que le retour après ta
+réponse. Une exception qu'on ne peut pas contourner : quand l'application récite le verso
+— tu n'as rien répondu, ou le modèle est tombé — elle le dit dans la langue de la carte,
+sinon une voix française lirait un verso anglais.
+
 ## La voix
 
 Deux choses la rendaient pénible.

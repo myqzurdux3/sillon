@@ -1,5 +1,6 @@
 package fr.appprepa.core.text
 
+import fr.appprepa.core.model.Langue
 import java.text.Normalizer
 
 /**
@@ -20,7 +21,7 @@ object Utterance {
      * Mots qui appellent une suite. Conjonctions, prepositions, determinants, relatifs,
      * auxiliaires : aucun ne peut clore une phrase francaise.
      */
-    private val DANGLING = setOf(
+    private val DANGLING_FR = setOf(
         // Conjonctions et articulations : aucune ne peut clore une phrase.
         "et", "ou", "mais", "donc", "or", "ni", "car", "puis", "ensuite", "alors",
         "parce", "puisque", "lorsque", "tandis", "cependant", "pourtant", "toutefois",
@@ -42,6 +43,35 @@ object Utterance {
         "qu", "lorsqu", "puisqu",
     )
 
+    /**
+     * Les memes, en anglais. La liste est plus courte a dessein : l'anglais termine
+     * volontiers sur une preposition — « what are you looking for », « the case I was
+     * thinking of » —, et relancer ces phrases-la couperait des reponses completes.
+     * Ne restent que des mots qui ne peuvent vraiment pas clore une phrase.
+     */
+    private val DANGLING_EN = setOf(
+        // Conjonctions et articulations.
+        "and", "or", "but", "because", "since", "while", "whereas", "although",
+        "though", "unless", "therefore", "thus", "hence", "then",
+        // Relatifs et subordonnants.
+        "that", "which", "whose", "whom",
+        // Determinants. « a » et « an » sont exclus : une lettre, ou trop proche.
+        "the", "this", "these", "those", "my", "your", "his", "her", "their", "our",
+        "every", "each", "another",
+        // Copules et auxiliaires qui exigent une suite. « is » et « was » restent :
+        // « that's what it is » se termine dessus, mais une reponse de fiche non.
+        "are", "were", "been", "being", "having",
+        // Prepositions qui n'apparaissent jamais en fin de phrase.
+        "into", "onto", "upon", "within", "towards", "toward", "during", "between",
+        // Adverbes qui exigent un complement.
+        "very", "quite", "rather", "approximately", "roughly",
+    )
+
+    private fun dangling(langue: Langue): Set<String> = when (langue) {
+        Langue.FRANCAIS -> DANGLING_FR
+        Langue.ANGLAIS -> DANGLING_EN
+    }
+
     /** En dessous, ce n'est pas une phrase en suspens : c'est une reponse tres courte. */
     private const val MIN_MOTS = 2
 
@@ -53,11 +83,11 @@ object Utterance {
      * « un » et « une » n'y figurent pas — « moins un » est un resultat, pas un article
      * en attente de son nom.
      */
-    fun looksUnfinished(raw: String): Boolean {
+    fun looksUnfinished(raw: String, langue: Langue = Langue.FRANCAIS): Boolean {
         val mots = normalize(raw).split(' ').filter { it.isNotEmpty() }
         if (mots.size < MIN_MOTS) return false
         val dernier = mots.last()
-        return dernier.length > 1 && dernier in DANGLING
+        return dernier.length > 1 && dernier in dangling(langue)
     }
 
     private fun normalize(raw: String): String =
