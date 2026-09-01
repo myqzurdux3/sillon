@@ -83,18 +83,22 @@ les sept secondes qui suivent son verdict. La dernière colonne dit où chaque c
 | Corriger en « difficile » | « difficile », « dur », « trop dur » | après le verdict |
 | Corriger en « bien » | « bien », « correct », « ok » | après le verdict |
 | Corriger en « facile » | « facile », « évident » | après le verdict |
-| Réentendre la question | « répète », « pardon » | pendant la réponse |
+| Réentendre la question | « répète », « répète la question », « j'ai pas entendu » | pendant la réponse |
 | Réentendre le verdict | « répète » | après le verdict |
-| Passer sans noter | « passe », « suivante » | pendant la réponse |
-| Te faire expliquer | « explique », « je sèche », « je ne sais pas » | pendant la réponse |
+| Passer sans noter | « passe », « passe la carte », « suivante » | pendant la réponse |
+| Te faire expliquer | « explique », « explique moi », « je sèche », « je bloque » | pendant la réponse |
 | Revenir sur la carte précédente | « reviens », « la précédente », « carte d'avant » | les deux |
 | Te faire réexpliquer la précédente | « explique la précédente », « c'était quoi déjà » | les deux |
 | Annuler la note de la carte précédente | « annule » | les deux |
 | Terminer la session | « stop », « terminé », « pause » | les deux |
 
-Une commande n'est reconnue que si elle constitue **toute** ta phrase : dire « je ne suis
-pas sûr, passe » compte comme une réponse, pas comme un « passe ». C'est délibéré — sinon
-la moitié des réponses déclencheraient une commande.
+Une commande doit **ouvrir** ta phrase et rester courte. Tu peux la dire comme elle vient
+— « répète la question », « tu peux répéter s'il te plaît », « j'ai pas entendu » — sans
+avoir à la réciter toute nue. Mais « je ne suis pas sûr, passe » compte comme une réponse,
+pas comme un « passe » : sinon la moitié des réponses déclencheraient une commande.
+
+Les notes font exception et restent exigeantes, d'un seul mot. « bien vu la formule » est
+une réponse, pas un « bien » — les élargir ferait noter des cartes à ton insu.
 
 « pause » termine la session comme « stop » : il n'y a pas de reprise.
 
@@ -182,24 +186,54 @@ Juste en dessous, **Cartes par session** : 10, 20, 40, 60, ou tout. Des boutons 
 qu'un champ, pour ne pas avoir à sortir le clavier avant de démarrer. S'il y a moins de
 cartes dues que la limite, tu auras ce qu'il y a.
 
-## Le seul réglage qui touche à la vitesse
+## Ce qui prend du temps, et ce qui a été gagné
 
-Le trajet a deux temps d'attente. Celui de la **question** est masqué : pendant que tu
-réponds à une carte, la suivante est déjà en cours de reformulation. Celui de la
-**correction** ne l'est pas — c'est le silence entre ta réponse et le verdict.
+Le trajet a trois temps d'attente. Celui de la **question** est masqué : pendant que tu
+réponds à une carte, la suivante est déjà en cours de reformulation. Les deux autres se
+subissent en silence.
 
-Mesuré sur tes propres cartes, sur l'appareil :
+**Le silence qui clôt ton tour de parole.** La reconnaissance vocale ne sait pas que tu as
+fini : elle attend une pause. Cette pause vaut maintenant 2 s après une réponse, et 1,1 s
+après un mot de correction — parce que « bien » ou « faux » ne se cherchent pas. Elle
+valait 2,5 s dans les deux cas. Sur une carte notée à la voix, c'est 1,9 s de gagnées.
 
-| Modèle de correction | Latence médiane |
+**La correction elle-même.** Mesuré sur la même carte, trois appels par configuration :
+
+| Configuration du jugement | Latence médiane |
 |---|---|
-| Le modèle principal (par défaut) | 4,3 s |
-| « Correction rapide » | 2,3 s |
+| Modèle principal, réflexion activée (avant) | 4,1 s |
+| Modèle principal, réflexion désactivée (par défaut) | 3,5 s |
+| « Juger avec un petit modèle » | 2,0 s |
 
-Le mode rapide juge moins finement. À toi de voir ce qui te gêne le plus : attendre, ou
-être mal noté. Le mode journal permet de trancher sur pièces.
+Juger une réponse orale contre un verso connu ne demande pas de raisonnement étendu :
+désactiver la réflexion préalable ne change pas le verdict et rend une demi-seconde.
 
-Le « mode rapide » de l'API, qui aurait accéléré le modèle principal sans changer sa
-qualité, n'est pas disponible sur ce compte (quota à zéro) — vérifié, pas supposé.
+Le petit modèle juge moins finement les réponses à moitié justes. À toi de voir ce qui te
+gêne le plus : attendre, ou être mal noté. Le mode journal permet de trancher sur pièces.
+
+Le « mode rapide » de l'API, qui accélérerait le modèle principal sans rien changer à sa
+qualité, n'est **pas ouvert sur ce compte** : le quota vaut zéro, vérifié en appelant
+l'API, pas supposé. S'il est ouvert un jour, le code sait déjà s'en servir — il suffit de
+passer `fast` à `true` dans `AnthropicTutor`, et il retombe tout seul en vitesse normale
+si le quota se referme.
+
+## La voix
+
+Deux choses la rendaient pénible.
+
+**Le débit.** Les moteurs français sont calés sur la lecture d'un écran, pas sur quelqu'un
+qui écoute en conduisant et connaît déjà le vocabulaire. Il est monté à 1,15, et réglable
+dans **Réglages → Vitesse de la voix**, entre 0,8 et 1,6. Le changement s'applique à la
+session suivante.
+
+**La voix elle-même.** Le moteur retenait la première voix française installée, souvent la
+plus plate. L'application classe maintenant les voix disponibles par qualité déclarée et
+prend la meilleure — en écartant les voix qui exigent le réseau, parce qu'elles ajoutent
+un aller-retour à chaque phrase et se taisent dans un tunnel.
+
+Si la voix te déplaît toujours, c'est le moteur système qu'il faut changer :
+**Paramètres Android → Système → Langues → Synthèse vocale**. Installe la voix française
+la mieux notée de ton moteur ; l'application la prendra d'elle-même au prochain démarrage.
 
 ## Mise au point sans voiture
 

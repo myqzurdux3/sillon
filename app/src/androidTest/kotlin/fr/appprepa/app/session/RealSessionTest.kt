@@ -5,6 +5,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import fr.appprepa.app.anki.AnkiAvailability
 import fr.appprepa.app.anki.AnkiDroidGateway
 import fr.appprepa.app.anki.AnkiStatus
+import fr.appprepa.app.CleDeTest
 import fr.appprepa.app.llm.AnthropicTutor
 import fr.appprepa.core.model.SessionMemory
 import fr.appprepa.core.model.Verdict
@@ -18,15 +19,15 @@ import org.junit.Test
  * Fait tourner les deux appels du modele sur de vraies cartes de la collection.
  * La cle arrive par argument d'instrumentation, jamais par un fichier sur le telephone :
  *
- *   am instrument -e apiKey <cle> -e class ...RealSessionTest ...
+ * La cle se pousse sur l'appareil, voir `CleDeTest` : elle ne doit jamais passer
+ * par un argument d'instrumentation, que `adbd` recopie dans le logcat.
  *
  * Aucune ecriture dans Anki : ce test ne fait que lire et interroger le modele.
  */
 class RealSessionTest {
 
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
-    private val apiKey: String
-        get() = InstrumentationRegistry.getArguments().getString("apiKey").orEmpty()
+    private val apiKey: String get() = CleDeTest.valeur
 
     @Test
     fun leModeleReformuleEtJugeDeVraiesCartes() = runBlocking {

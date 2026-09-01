@@ -1,5 +1,6 @@
 package fr.appprepa.core.engine
 
+import fr.appprepa.core.ports.ListenKind
 import fr.appprepa.core.model.Ease
 import fr.appprepa.core.model.Judgement
 import fr.appprepa.core.model.ReviewCard

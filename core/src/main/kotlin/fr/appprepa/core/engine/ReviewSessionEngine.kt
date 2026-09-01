@@ -9,6 +9,7 @@ import fr.appprepa.core.model.Verdict
 import fr.appprepa.core.model.WriteMode
 import fr.appprepa.core.text.MathSpeech
 import fr.appprepa.core.text.Utterance
+import fr.appprepa.core.ports.ListenKind
 import fr.appprepa.core.voice.VoiceCommand
 import fr.appprepa.core.voice.VoiceCommandParser
 
@@ -283,8 +284,14 @@ object ReviewSessionEngine {
     ): Reduction = when (VoiceCommandParser.parse(transcript)) {
         VoiceCommand.Stop -> finish(session, nowMs)
 
+        // Reposer la question remet le compteur de patience a zero : la relance et la
+        // reprise valent pour la nouvelle tentative, pas pour celle qu'on vient d'effacer.
         VoiceCommand.Repeat -> Reduction(
-            session.copy(state = SessionState.Asking(state.inFlight)),
+            session.copy(
+                state = SessionState.Asking(state.inFlight),
+                retriedAnswer = false,
+                askedToContinue = false,
+            ),
             listOf(Effect.Speak(state.inFlight.question)),
         )
 

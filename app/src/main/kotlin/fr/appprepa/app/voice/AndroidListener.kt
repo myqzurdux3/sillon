@@ -8,6 +8,7 @@ import android.os.Looper
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
+import fr.appprepa.core.ports.ListenKind
 import fr.appprepa.core.ports.ListenResult
 import fr.appprepa.core.ports.Listener
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -26,15 +27,27 @@ class AndroidListener(private val context: Context) : Listener {
     companion object {
 
         /**
-         * Silence apres lequel la reconnaissance considere la phrase finie.
+         * Silence apres lequel la reconnaissance considere la reponse finie.
          *
-         * Une seconde et demie coupait quelqu'un qui cherche ses mots. Deux secondes et
-         * demie laissent le temps de reflechir sans allonger l'attente au point qu'on se
-         * demande si l'application a entendu. Ce qui depasse cette pause est rattrape
-         * autrement : le moteur relance quand la phrase s'arrete sur un mot qui appelle
-         * une suite, voir `Utterance`.
+         * Ce silence est du temps mort pur : l'utilisateur a fini de parler et attend. Une
+         * seconde et demie coupait quelqu'un qui cherche ses mots, deux et demie se
+         * remarquaient a chaque carte. Deux secondes tiennent parce que le depassement est
+         * rattrape ailleurs : le moteur relance quand la phrase s'arrete sur un mot qui
+         * appelle une suite, voir `Utterance`.
          */
-        const val SILENCE_FIN_MS = 2_500L
+        const val SILENCE_REPONSE_MS = 2_000L
+
+        /**
+         * Une correction est un mot connu d'avance — « bien », « faux », « passe ». On ne
+         * cherche pas ses mots pour la dire, et rien ne la relance : attendre aussi
+         * longtemps qu'apres une reponse ne fait qu'ajouter du blanc entre deux cartes.
+         */
+        const val SILENCE_CORRECTION_MS = 1_100L
+
+        private fun silence(kind: ListenKind): Long = when (kind) {
+            ListenKind.ANSWER -> SILENCE_REPONSE_MS
+            ListenKind.CORRECTION -> SILENCE_CORRECTION_MS
+        }
 
         /**
          * Verifie que l'ecoute est possible avant de partir. AnkiDroid et la synthese
@@ -54,7 +67,7 @@ class AndroidListener(private val context: Context) : Listener {
         }
     }
 
-    override suspend fun listen(timeoutMs: Long): ListenResult =
+    override suspend fun listen(kind: ListenKind, timeoutMs: Long): ListenResult =
         suspendCancellableCoroutine { continuation ->
             main.post {
                 if (!SpeechRecognizer.isRecognitionAvailable(context)) {
@@ -118,11 +131,11 @@ class AndroidListener(private val context: Context) : Listener {
                     putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
                     putExtra(
                         RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS,
-                        SILENCE_FIN_MS,
+                        silence(kind),
                     )
                     putExtra(
                         RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS,
-                        SILENCE_FIN_MS,
+                        silence(kind),
                     )
                 }
 

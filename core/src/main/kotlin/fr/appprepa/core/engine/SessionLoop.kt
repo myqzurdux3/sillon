@@ -131,7 +131,7 @@ class SessionLoop(
             }
 
             is Effect.Listen -> {
-                val awaited = scope.async { listener.listen(effect.timeoutMs) }
+                val awaited = scope.async { listener.listen(effect.kind, effect.timeoutMs) }
                 currentListen = awaited
                 val result = try {
                     awaited.await()

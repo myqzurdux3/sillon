@@ -8,6 +8,7 @@ import fr.appprepa.core.model.ReviewCard
 import fr.appprepa.core.model.SessionMemory
 import fr.appprepa.core.model.SessionStats
 import fr.appprepa.core.model.WriteMode
+import fr.appprepa.core.ports.ListenKind
 
 /** La carte en cours de traitement, avec sa question orale. */
 data class CardInFlight(
@@ -101,8 +102,6 @@ sealed interface Event {
     data class Fatal(val reason: String) : Event
     data object StopRequested : Event
 }
-
-enum class ListenKind { ANSWER, CORRECTION }
 
 sealed interface Effect {
     data class Speak(val text: String) : Effect

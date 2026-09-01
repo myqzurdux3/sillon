@@ -23,6 +23,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -54,6 +55,7 @@ fun SettingsScreen(
     var revealKey by remember { mutableStateOf(false) }
     var limit by remember { mutableIntStateOf(settings.cardLimit) }
     var fastJudge by remember { mutableStateOf(settings.fastJudge) }
+    var rate by remember { mutableFloatStateOf(settings.speechRate) }
 
     Column(
         modifier = Modifier
@@ -158,10 +160,37 @@ fun SettingsScreen(
             },
         )
 
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(
+                "Vitesse de la voix",
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onBackground,
+            )
+            Text(
+                "1 est la vitesse du moteur, calée sur la lecture d'un écran. " +
+                    "S'applique à la prochaine session.",
+                style = MaterialTheme.typography.bodySmall,
+                color = SillonPalette.faint,
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(18.dp)) {
+                SettingsStore.RATE_CHOICES.forEach { choice ->
+                    Text(
+                        text = choice.toString().replace('.', ','),
+                        fontSize = 17.sp,
+                        color = if (choice == rate) SillonPalette.accent else SillonPalette.faint,
+                        modifier = Modifier.clickable {
+                            rate = choice
+                            settings.speechRate = choice
+                        },
+                    )
+                }
+            }
+        }
+
         Toggle(
-            title = "Correction rapide",
-            detail = "Juge avec un modèle plus rapide mais moins fin. Mesuré sur tes cartes : " +
-                "2,3 s au lieu de 4,3 s. C'est le seul temps d'attente que tu ressens vraiment.",
+            title = "Juger avec un petit modèle",
+            detail = "2,0 s au lieu de 3,5 s, mais moins fin sur les réponses à moitié " +
+                "justes. N'active ceci que si l'attente te gêne plus que d'être mal noté.",
             checked = fastJudge,
             onChange = {
                 fastJudge = it

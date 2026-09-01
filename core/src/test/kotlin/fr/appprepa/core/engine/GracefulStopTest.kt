@@ -1,5 +1,6 @@
 package fr.appprepa.core.engine
 
+import fr.appprepa.core.ports.ListenKind
 import fr.appprepa.core.model.Ease
 import fr.appprepa.core.model.ReviewCard
 import fr.appprepa.core.model.WriteMode
@@ -25,7 +26,7 @@ class GracefulStopTest {
         var stopAfter = 2
         private var calls = 0
 
-        override suspend fun listen(timeoutMs: Long): ListenResult {
+        override suspend fun listen(kind: ListenKind, timeoutMs: Long): ListenResult {
             calls++
             if (calls > stopAfter) {
                 loop.requestStop()

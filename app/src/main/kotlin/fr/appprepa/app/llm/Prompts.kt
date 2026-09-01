@@ -36,7 +36,14 @@ object Prompts {
         « x au carré », « \\(\\cos(x)\\) » se dit « cosinus de x ».
         Aucun backslash, aucune accolade, aucun symbole ne doit apparaître dans ta réponse.
 
-        Tu réponds uniquement par un objet JSON, sans texte autour.
+        Ponctue ce que tu fais dire : la synthèse vocale ne tire son intonation que de la
+        ponctuation. Un point fait descendre la voix, un point d'interrogation la fait
+        monter, une virgule marque une respiration. Une phrase sans ponctuation est lue
+        d'un ton plat et se comprend mal au volant. Écris donc des phrases courtes et
+        complètes, et termine-les.
+
+        Tu réponds uniquement par un objet JSON, sans texte autour. N'écris aucune balise
+        interne ni aucun commentaire avant ou après cet objet.
     """.trimIndent()
 
     fun reformulate(card: ReviewCard, memoryText: String): String = buildString {

@@ -6,6 +6,7 @@ import android.content.Context
 import androidx.core.content.edit
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
+import fr.appprepa.app.voice.AndroidSpeaker
 import fr.appprepa.core.model.WriteMode
 
 /** Plafond « tout » : au-dela d'un trajet, la limite n'a plus de sens. */
@@ -62,13 +63,23 @@ class SettingsStore(context: Context) {
         set(value) = prefs.edit { putInt(KEY_LIMIT, value.coerceIn(1, ALL_CARDS)) }
 
     /**
-     * Juger avec un modele plus rapide et moins capable. Mesure sur cartes reelles :
-     * mediane 4,3 s avec le modele principal, 2,3 s avec le rapide. C'est le seul temps
-     * mort reellement percu, celui de la reformulation etant masque par le prechargement.
+     * Juger avec un modele plus petit et moins capable. Le mode rapide du modele principal
+     * couvre deja l'essentiel de l'ecart de latence sans rien lacher sur la qualite du
+     * jugement ; ce reglage reste pour les trajets sans reseau correct, ou pour le cout.
      */
     var fastJudge: Boolean
         get() = prefs.getBoolean(KEY_FAST_JUDGE, false)
         set(value) = prefs.edit { putBoolean(KEY_FAST_JUDGE, value) }
+
+    /**
+     * Vitesse d'elocution. Le debit par defaut des moteurs francais est cale sur la lecture
+     * d'un ecran, pas sur quelqu'un qui ecoute en conduisant et connait le vocabulaire.
+     */
+    var speechRate: Float
+        get() = prefs.getFloat(KEY_RATE, AndroidSpeaker.DEFAULT_RATE)
+        set(value) = prefs.edit {
+            putFloat(KEY_RATE, value.coerceIn(AndroidSpeaker.MIN_RATE, AndroidSpeaker.MAX_RATE))
+        }
 
     /** Repondre au clavier au lieu du micro, pour la mise au point. */
     var debugTranscripts: Boolean
@@ -78,6 +89,9 @@ class SettingsStore(context: Context) {
     companion object {
         /** Les tailles de session proposees. La derniere vaut « tout ce qui est du ». */
         val LIMIT_CHOICES = listOf(10, 20, 40, 60, ALL_CARDS)
+
+        /** Les vitesses proposees. Assez espacees pour que l'ecart s'entende. */
+        val RATE_CHOICES = listOf(0.9f, 1.0f, 1.15f, 1.3f, 1.45f, 1.6f)
         const val DEFAULT_LIMIT = 40
 
         private const val KEY_API = "api_key"
@@ -87,5 +101,6 @@ class SettingsStore(context: Context) {
         private const val KEY_COLLAPSED = "collapsed_deck_ids"
         private const val KEY_DEBUG = "debug_transcripts"
         private const val KEY_FAST_JUDGE = "fast_judge"
+        private const val KEY_RATE = "speech_rate"
     }
 }

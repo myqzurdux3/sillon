@@ -156,20 +156,38 @@ speech-to-speech temps réel soit un remplacement d'implémentation et non une r
 
 ```kotlin
 interface Speaker {
-    suspend fun speak(text: String, id: String)   // rend la main à la fin de l'énoncé
+    suspend fun speak(text: String)               // rend la main à la fin de l'énoncé
     fun stop()
 }
 
 interface Listener {
-    suspend fun listen(timeoutMs: Long, endOfSpeechMs: Long): ListenResult
+    suspend fun listen(kind: ListenKind, timeoutMs: Long): ListenResult
 }
 ```
 
-`ListenResult` vaut `Transcript(text)`, `Silence`, ou `Error(cause)`.
+`ListenResult` vaut `Transcript(text)`, `Silence`, ou `Failure(cause)`.
 
-Implémentation v1 : `TextToSpeech` et `SpeechRecognizer` d'Android, en français, hors
-ligne quand le moteur le permet. Pas d'interruption de la parole de l'IA en v1 — la
-commande « répète » couvre le besoin réel à moindre risque.
+`ListenKind` distingue les deux fenêtres — `ANSWER` et `CORRECTION` — parce qu'elles
+n'attendent pas la même chose. Une réponse est une phrase qu'on cherche parfois ; le
+silence qui la clôt est fixé à 2 s, et le dépassement est rattrapé par la relance
+(section 6). Une correction est un mot connu d'avance : 1,1 s suffit, et attendre plus
+n'ajoute que du blanc entre deux cartes. Ce silence est du temps mort pur, l'utilisateur
+a fini de parler et attend : c'est le poste de latence le moins visible et le plus payant.
+
+Implémentation v1 : `TextToSpeech` et `SpeechRecognizer` d'Android, en français. Pas
+d'interruption de la parole de l'IA en v1 — la commande « répète » couvre le besoin réel
+à moindre risque.
+
+### Choix de la voix
+
+Le moteur retient la première voix française venue, souvent la plus pauvre. L'adaptateur
+classe les voix installées par qualité déclarée, puis par latence de démarrage, et
+**écarte les voix réseau** tant qu'il existe une voix embarquée : une voix réseau ajoute
+un aller-retour à chaque énoncé et se tait dans un tunnel — le moteur signale alors une
+erreur, l'application enchaîne sans un mot, et la séance continue à l'aveugle.
+
+Le débit par défaut des moteurs français est calé sur la lecture d'un écran. Il est monté
+à 1,15 et reste réglable dans l'application, entre 0,8 et 1,6.
 
 Gestion audio : service de premier plan, `AudioAttributes` en usage assistant vocal, prise
 de focus audio transitoire avec atténuation. La musique baisse pendant la question ; une
@@ -201,7 +219,6 @@ Sortie :
   "verdict": "correct | partiel | faux",
   "ease": 1,
   "spoken_feedback": "deux phrases maximum",
-  "missed": ["..."],
   "formulation_note": "... ou null",
   "topic": "..."
 }
@@ -209,7 +226,27 @@ Sortie :
 
 `spoken_feedback` est plafonné en longueur côté code : au-delà d'environ 40 mots, il est
 tronqué à la phrase. Un verso de fiche de prépa peut faire dix lignes ; l'énoncer
-intégralement à voix haute tuerait le rythme.
+intégralement à voix haute tuerait le rythme. Quand le verdict est `correct`, le plafond
+tombe à 12 mots et à la première phrase : l'élève vient de le dire, le lui réexpliquer
+allonge le trajet pour rien.
+
+### Réglage des deux appels
+
+Le jugement est sur le chemin critique — l'utilisateur a fini de parler et attend en
+silence — alors que la reformulation est préchargée pendant qu'il répond à la carte
+d'avant. Les deux appels ne sont donc pas réglés pareil :
+
+| | reformulation | jugement et explication |
+|---|---|---|
+| Réflexion préalable | par défaut du modèle | désactivée |
+| Effort | bas | bas |
+| Mode rapide | non | oui, quand le modèle le propose |
+| Plafond de sortie | 700 jetons | 400 jetons |
+
+Comparer une réponse orale à un verso connu et rendre un petit objet JSON ne demande pas
+de raisonnement étendu : l'activer coûtait plusieurs secondes par carte sans rien apporter
+au verdict. Le mode rapide a son propre quota, plus étroit que le quota ordinaire ; le
+saturer ne doit pas arrêter la séance, l'adaptateur repart alors en vitesse normale.
 
 `formulation_note` est le canal par lequel l'objectif « m'apprendre à formuler des phrases
 claires et précises » se réalise : le modèle ne le remplit que lorsque la réponse était

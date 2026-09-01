@@ -1,5 +1,6 @@
 package fr.appprepa.core.engine
 
+import fr.appprepa.core.ports.ListenKind
 import fr.appprepa.core.model.ReviewCard
 import fr.appprepa.core.model.WriteMode
 import fr.appprepa.core.ports.ListenResult
@@ -74,7 +75,7 @@ class ListenFailureTest {
     private class BrokenListener : Listener {
         var calls = 0
             private set
-        override suspend fun listen(timeoutMs: Long): ListenResult {
+        override suspend fun listen(kind: ListenKind, timeoutMs: Long): ListenResult {
             calls++
             return ListenResult.Failure("micro indisponible")
         }

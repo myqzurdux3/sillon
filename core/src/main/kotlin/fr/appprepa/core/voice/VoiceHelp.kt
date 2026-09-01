@@ -36,43 +36,43 @@ object VoiceHelp {
         ),
         Entree(
             "Noter « difficile »",
-            listOf("difficile", "dur", "trop dur", "moyen"),
+            listOf("difficile", "dur", "trop dur", "chaud", "moyen"),
             Fenetre.CORRECTION,
             VoiceCommand.Correct(fr.appprepa.core.model.Ease.HARD),
         ),
         Entree(
             "Noter « bien »",
-            listOf("bien", "correct", "ok", "oui"),
+            listOf("bien", "correct", "juste", "exact", "ok", "oui"),
             Fenetre.CORRECTION,
             VoiceCommand.Correct(fr.appprepa.core.model.Ease.GOOD),
         ),
         Entree(
             "Noter « facile »",
-            listOf("facile", "évident", "très facile"),
+            listOf("facile", "évident", "trop facile", "par cœur"),
             Fenetre.CORRECTION,
             VoiceCommand.Correct(fr.appprepa.core.model.Ease.EASY),
         ),
         Entree(
             "Réentendre la question, ou le verdict",
-            listOf("répète", "pardon", "redis"),
+            listOf("répète", "répète la question", "j'ai pas entendu", "redis"),
             Fenetre.LES_DEUX,
             VoiceCommand.Repeat,
         ),
         Entree(
             "Passer la carte sans la noter",
-            listOf("passe", "suivante", "saute"),
+            listOf("passe", "passe la carte", "suivante", "saute"),
             Fenetre.REPONSE,
             VoiceCommand.Skip,
         ),
         Entree(
             "Se faire donner la réponse",
-            listOf("explique", "je sèche", "je ne sais pas", "aucune idée"),
+            listOf("explique", "explique moi", "je sèche", "je bloque", "je ne sais pas"),
             Fenetre.REPONSE,
             VoiceCommand.Explain,
         ),
         Entree(
             "Revenir sur la carte précédente",
-            listOf("reviens", "la précédente", "carte d'avant", "retour"),
+            listOf("reviens", "reviens en arrière", "la précédente", "retour"),
             Fenetre.LES_DEUX,
             VoiceCommand.Revisit,
         ),
@@ -84,25 +84,27 @@ object VoiceHelp {
         ),
         Entree(
             "Jeter la note de la carte précédente",
-            listOf("annule", "annuler", "oublie"),
+            listOf("annule", "annule ça", "oublie"),
             Fenetre.LES_DEUX,
             VoiceCommand.Undo,
         ),
         Entree(
             "Terminer la session",
-            listOf("stop", "terminé", "arrête", "pause"),
+            listOf("stop", "arrête tout", "terminé", "pause"),
             Fenetre.LES_DEUX,
             VoiceCommand.Stop,
         ),
     )
 
     /**
-     * La regle qui explique la plupart des surprises : une commande doit constituer
-     * toute la phrase. Les formules de politesse sont tolerees, le reste non.
+     * La regle qui explique la plupart des surprises. Elle a ete assouplie : seule la
+     * commande nue etait reconnue, et « répète la question » partait au modele comme une
+     * reponse, se faisait juger faux et faisait defiler la carte. Elle reste une regle,
+     * sinon la moitie des reponses de fiche declencheraient une commande.
      */
-    const val REGLE = "Une commande n'est reconnue que si elle est toute ta phrase. " +
-        "« je ne suis pas sûr, passe » compte comme une réponse. Sinon la moitié des " +
-        "réponses déclencheraient une commande."
+    const val REGLE = "Une commande doit ouvrir ta phrase et rester courte. Tu peux la dire " +
+        "naturellement — « répète la question », « tu peux répéter » — mais " +
+        "« je ne suis pas sûr, passe » reste une réponse. Les notes, elles, se disent d'un mot."
 
     /** Ce qui n'est pas une commande mais se dit quand meme. */
     const val NOTE_PAUSE = "« pause » termine la session comme « stop » : il n'y a pas de reprise."

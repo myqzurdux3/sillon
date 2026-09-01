@@ -78,17 +78,19 @@ que l'application écoute.
 | Pour | Dis | Quand |
 |---|---|---|
 | Corriger la note | « à revoir », « faux », « difficile », « bien », « facile » | après le verdict |
-| Réentendre la question | « répète », « pardon » | pendant la réponse |
+| Réentendre la question | « répète », « répète la question », « j'ai pas entendu » | pendant la réponse |
 | Réentendre le verdict | « répète » | après le verdict |
-| Passer sans noter | « passe », « suivante » | pendant la réponse |
-| Te faire expliquer | « explique », « je sèche » | pendant la réponse |
+| Passer sans noter | « passe », « passe la carte », « suivante » | pendant la réponse |
+| Te faire expliquer | « explique », « explique moi », « je sèche », « je bloque » | pendant la réponse |
 | Revenir sur la carte précédente | « reviens », « la précédente », « carte d'avant » | les deux |
 | Te faire réexpliquer la précédente | « explique la précédente », « c'était quoi déjà » | les deux |
 | Annuler la note précédente | « annule » | les deux |
 | Terminer | « stop », « terminé » | les deux |
 
-Une commande n'est reconnue que si elle constitue toute la phrase : « je ne suis pas sûr,
-passe » compte comme une réponse. Sinon la moitié des réponses déclencheraient une commande.
+Une commande doit **ouvrir** ta phrase et rester courte. Tu peux la dire naturellement —
+« répète la question », « tu peux répéter », « passe la carte » —, mais « je ne suis pas
+sûr, passe » compte comme une réponse. Les notes, elles, se disent d'un mot : élargir
+« bien » ou « faux » ferait passer des réponses pour des notes.
 
 **Chercher ses mots ne coupe pas la réponse.** Si la phrase s'arrête sur un mot qui appelle
 une suite — « la dérivée de ce produit vaut *donc* » —, l'application dit « continue, je

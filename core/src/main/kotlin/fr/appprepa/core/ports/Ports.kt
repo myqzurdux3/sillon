@@ -46,8 +46,15 @@ sealed interface ListenResult {
 }
 
 /** Reconnaissance vocale. */
+/**
+ * Les deux fenetres d'ecoute. Elles n'attendent pas la meme chose : une reponse est une
+ * phrase que l'on cherche parfois, une correction est un mot que l'on connait deja.
+ * L'adaptateur s'en sert pour regler la duree de silence qui met fin a l'ecoute.
+ */
+enum class ListenKind { ANSWER, CORRECTION }
+
 interface Listener {
-    suspend fun listen(timeoutMs: Long): ListenResult
+    suspend fun listen(kind: ListenKind, timeoutMs: Long): ListenResult
 }
 
 interface Journal {

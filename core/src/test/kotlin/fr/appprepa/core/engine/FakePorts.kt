@@ -1,5 +1,6 @@
 package fr.appprepa.core.engine
 
+import fr.appprepa.core.ports.ListenKind
 import fr.appprepa.core.deck.DeckInfo
 import fr.appprepa.core.deck.DeckMerge
 import fr.appprepa.core.model.Ease
@@ -82,7 +83,7 @@ class FakeSpeaker : Speaker {
 
 /** Rend les transcripts dans l'ordre ; `null` signifie silence. */
 class ScriptedListener(private val script: MutableList<String?>) : Listener {
-    override suspend fun listen(timeoutMs: Long): ListenResult =
+    override suspend fun listen(kind: ListenKind, timeoutMs: Long): ListenResult =
         when (val next = script.removeFirstOrNull()) {
             null -> ListenResult.Silence
             else -> ListenResult.Transcript(next)

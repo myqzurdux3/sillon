@@ -1,5 +1,6 @@
 package fr.appprepa.app.session
 
+import fr.appprepa.core.ports.ListenKind
 import fr.appprepa.core.deck.DeckInfo
 import fr.appprepa.core.engine.SessionLoop
 import fr.appprepa.core.model.Ease
@@ -60,7 +61,7 @@ class RevisitOnDeviceTest {
     }
 
     private class Script(private val lines: MutableList<String?>) : Listener {
-        override suspend fun listen(timeoutMs: Long): ListenResult =
+        override suspend fun listen(kind: ListenKind, timeoutMs: Long): ListenResult =
             when (val next = lines.removeFirstOrNull()) {
                 null -> ListenResult.Silence
                 else -> ListenResult.Transcript(next)

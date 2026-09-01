@@ -89,7 +89,7 @@ class SessionService : Service() {
             }
         }
 
-        val tts = AndroidSpeaker(this).also { speaker = it }
+        val tts = AndroidSpeaker(this, settings.speechRate).also { speaker = it }
         if (!tts.awaitReady()) {
             holder.finish(
                 SessionOutcome.Failed("La synthèse vocale française n'est pas disponible."),

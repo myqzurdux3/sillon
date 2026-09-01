@@ -1,5 +1,6 @@
 package fr.appprepa.app.session
 
+import fr.appprepa.core.ports.ListenKind
 import fr.appprepa.core.ports.ListenResult
 import fr.appprepa.core.ports.Listener
 import kotlinx.coroutines.channels.Channel
@@ -18,7 +19,7 @@ class DebugListener : Listener {
         inbox.send(text)
     }
 
-    override suspend fun listen(timeoutMs: Long): ListenResult =
+    override suspend fun listen(kind: ListenKind, timeoutMs: Long): ListenResult =
         when (val text = withTimeoutOrNull(timeoutMs) { inbox.receive() }) {
             null -> ListenResult.Silence
             else -> if (text.isBlank()) ListenResult.Silence else ListenResult.Transcript(text)
