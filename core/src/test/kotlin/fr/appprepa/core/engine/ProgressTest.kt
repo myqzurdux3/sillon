@@ -7,15 +7,16 @@ import org.junit.Test
 /** « carte 7 sur 32 » : le seul chiffre affiche pendant la conduite. */
 class ProgressTest {
 
-    private fun card(id: Long, media: Boolean = false) =
-        ReviewCard(id, 0, "Deck", "recto $id", "verso $id", 4, media)
+    /** [muette] : un verso sans texte, le seul motif qui ecarte vraiment une carte. */
+    private fun card(id: Long, muette: Boolean = false) =
+        ReviewCard(id, 0, "Deck", "recto $id", if (muette) "" else "verso $id", 4, muette)
 
     @Test
-    fun `le total est fixe au chargement, hors cartes a media`() {
+    fun `le total est fixe au chargement, hors cartes sans verso lisible`() {
         val loading = Session(state = SessionState.Loading)
         val result = ReviewSessionEngine.reduce(
             loading,
-            Event.CardsLoaded(listOf(card(1), card(2, media = true), card(3))),
+            Event.CardsLoaded(listOf(card(1), card(2, muette = true), card(3))),
             0L,
         )
         assertEquals(2, result.session.total)

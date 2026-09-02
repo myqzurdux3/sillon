@@ -5,6 +5,8 @@ import fr.appprepa.core.model.Ease
 import fr.appprepa.core.model.JournalRecord
 import fr.appprepa.core.model.Langue
 import fr.appprepa.core.model.ReviewCard
+import fr.appprepa.core.model.Usability
+import fr.appprepa.core.model.Intention
 import fr.appprepa.core.model.Judgement
 import fr.appprepa.core.model.Verdict
 import fr.appprepa.core.model.WriteMode
@@ -75,14 +77,17 @@ object ReviewSessionEngine {
     // --- chargement -------------------------------------------------------
 
     private fun onCardsLoaded(session: Session, event: Event.CardsLoaded, nowMs: Long): Reduction {
-        val (usable, skipped) = event.cards.partition { !it.hasMedia }
-        val skipEffects = skipped.map { card ->
-            Effect.Record(
-                skippedRecord(session, card, nowMs, "carte a media, inutilisable en voiture"),
-            )
+        // Une carte s'ecarte parce qu'il n'y a rien a lire, pas parce qu'un fichier est
+        // joint. L'ancienne regle — « la carte porte un media » — retirait 96 % de la
+        // collection reelle, dont des cartes entierement textuelles.
+        val motifs = event.cards.associateWith { Usability.raison(it) }
+        val usable = event.cards.filter { motifs[it] == null }
+        val skipEffects = event.cards.mapNotNull { card ->
+            motifs[card]?.let { Effect.Record(skippedRecord(session, card, nowMs, it)) }
         }
+        val skipped = event.cards.size - usable.size
         val afterSkips = session.copy(
-            stats = session.stats.copy(skipped = session.stats.skipped + skipped.size),
+            stats = session.stats.copy(skipped = session.stats.skipped + skipped),
             total = usable.size,
         )
 
@@ -533,26 +538,31 @@ object ReviewSessionEngine {
                         ),
                     )
                 } else {
-                    // Cet enonce recite le verso : il suit la langue de la carte, meme
-                    // si les corrections sont reglees en francais.
+                    // Deux silences ne prouvent pas l'ignorance : ils prouvent que rien
+                    // n'a ete entendu. Le micro rend regulierement une transcription vide
+                    // sur cet appareil — cinq des douze revisions du journal —, et noter
+                    // « a revoir » a chaque fois abime le calendrier Anki sur la foi d'une
+                    // panne. On donne la reponse, puis on passe sans rien noter : la carte
+                    // reste due, ce qui est exactement la verite de la situation.
                     val langue = langueCarte(state.inFlight)
-                    val giveUp = Judgement(
-                        verdict = Verdict.FAUX,
-                        ease = Ease.AGAIN,
-                        spokenFeedback = Phrases.pasDeReponse(langue) + " " +
-                            MathSpeech.verbalize(state.inFlight.card.answer),
-                        formulationNote = null,
-                        topic = null,
-                    )
-                    Reduction(
-                        session.copy(
-                            state = SessionState.SpeakingVerdict(
-                                state.inFlight,
-                                Assessment.Judged(giveUp),
-                                "",
+                    advance(
+                        session.copy(stats = session.stats.copy(skipped = session.stats.skipped + 1)),
+                        listOf(
+                            Effect.Record(
+                                skippedRecord(
+                                    session,
+                                    state.inFlight.card,
+                                    nowMs,
+                                    "rien entendu, carte laissee due",
+                                ),
+                            ),
+                            Effect.Speak(
+                                Phrases.pasDeReponse(langue) + " " +
+                                    MathSpeech.verbalize(state.inFlight.card.answer),
+                                langue,
                             ),
                         ),
-                        listOf(Effect.Speak(giveUp.spokenFeedback, langue)),
+                        nowMs,
                     )
                 }
 
@@ -689,6 +699,14 @@ object ReviewSessionEngine {
 
     private fun onJudged(session: Session, event: Event.Judged, nowMs: Long): Reduction {
         val state = session.state as? SessionState.Judging ?: return Reduction(session, emptyList())
+
+        // Ce n'etait peut-etre pas une reponse. Le modele vient de le dire dans le meme
+        // appel : agir sur sa lecture plutot que sur une liste de mots-cles est la seule
+        // facon de comprendre « attends j'ai pas bien entendu tu peux redire ».
+        if (event.judgement.intention != Intention.REPONSE) {
+            return surIntention(session, state, event.judgement.intention, nowMs)
+        }
+
         val bounded = event.judgement.copy(
             ease = event.judgement.ease.clampTo(state.inFlight.card.buttonCount),
         )
@@ -711,6 +729,59 @@ object ReviewSessionEngine {
                 ),
             ),
         )
+    }
+
+    /**
+     * L'utilisateur demandait quelque chose au lieu de repondre. On rejoue exactement le
+     * chemin de la commande vocale correspondante : rien n'est note, et la carte en cours
+     * n'est pas perdue.
+     */
+    private fun surIntention(
+        session: Session,
+        state: SessionState.Judging,
+        intention: Intention,
+        nowMs: Long,
+    ): Reduction {
+        val enVol = state.inFlight
+        val enEcoute = SessionState.Listening(enVol)
+        return when (intention) {
+            // Reposer la question remet la patience a zero : la relance et la reprise
+            // valent pour la nouvelle tentative, pas pour celle qu'on vient d'effacer.
+            Intention.REPETER -> Reduction(
+                session.copy(
+                    state = SessionState.Asking(enVol),
+                    retriedAnswer = false,
+                    askedToContinue = false,
+                ),
+                listOf(Effect.Speak(enVol.question, langueCarte(enVol))),
+            )
+
+            Intention.PASSER -> advance(
+                session.copy(stats = session.stats.copy(skipped = session.stats.skipped + 1)),
+                listOf(
+                    Effect.Record(skippedRecord(session, enVol.card, nowMs, "passee a la voix")),
+                ),
+                nowMs,
+            )
+
+            Intention.EXPLIQUER -> Reduction(
+                session,
+                listOf(Effect.Explain(enVol.card, langueVerdict(session, enVol))),
+            )
+
+            Intention.REVENIR -> openRevisit(session, enVol, explaining = false)
+
+            // L'etat repasse en ecoute : la fin de l'enonce rouvre le micro sur la meme
+            // question, au lieu de laisser la file de la boucle se vider en silence.
+            Intention.ANNULER -> {
+                val jetee = dropPending(session, "annulee a la voix")
+                Reduction(jetee.session.copy(state = enEcoute), jetee.effects)
+            }
+
+            Intention.ARRETER -> finish(session, nowMs)
+
+            Intention.REPONSE -> Reduction(session, emptyList())
+        }
     }
 
     // --- validation d'une carte ------------------------------------------

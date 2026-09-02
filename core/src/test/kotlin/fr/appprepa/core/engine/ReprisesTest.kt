@@ -119,8 +119,8 @@ class ReprisesTest {
     @Test
     fun `les cartes a media ne decalent pas le rang de la premiere carte`() {
         val cards = listOf(
-            ReviewCard(1, 0, "d", "q1", "a1", 4, hasMedia = true),
-            ReviewCard(2, 0, "d", "q2", "a2", 4, hasMedia = true),
+            ReviewCard(1, 0, "d", "q1", "", 4, hasMedia = true),
+            ReviewCard(2, 0, "d", "q2", "", 4, hasMedia = true),
             ReviewCard(3, 0, "d", "q3", "a3", 4, hasMedia = false),
             ReviewCard(4, 0, "d", "q4", "a4", 4, hasMedia = false),
         )

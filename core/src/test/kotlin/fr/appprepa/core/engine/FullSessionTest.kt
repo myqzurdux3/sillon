@@ -10,8 +10,9 @@ import org.junit.Test
 
 class FullSessionTest {
 
-    private fun card(id: Long, media: Boolean = false) =
-        ReviewCard(id, 0, "Prepa", "recto $id", "verso $id", 4, media)
+    /** [muette] : un verso sans texte, le seul motif qui ecarte vraiment une carte. */
+    private fun card(id: Long, muette: Boolean = false) =
+        ReviewCard(id, 0, "Prepa", "recto $id", if (muette) "" else "verso $id", 4, muette)
 
     private fun loop(
         cards: List<ReviewCard>,
@@ -90,7 +91,7 @@ class FullSessionTest {
 
     @Test
     fun `les cartes a media sont ecartees sans etre notees`() = runTest {
-        val cards = listOf(card(1, media = true), card(2))
+        val cards = listOf(card(1, muette = true), card(2))
         val gateway = FakeAnkiGateway(cards)
         val journal = FakeJournal()
         val script = mutableListOf<String?>("reponse 2", null)

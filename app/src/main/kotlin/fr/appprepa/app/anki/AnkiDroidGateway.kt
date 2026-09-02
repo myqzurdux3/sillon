@@ -184,7 +184,7 @@ class AnkiDroidGateway(
                         ?: cursor.string(ANSWER_SIMPLE)
                         ?: cursor.string(ANSWER).orEmpty(),
                 ),
-                deckId = cursor.int(DECK_ID)?.toLong()
+                deckId = cursor.long(DECK_ID)
                     ?: cursor.string(DECK_ID)?.toLongOrNull()
                     ?: 0L,
             )
@@ -196,6 +196,15 @@ class AnkiDroidGateway(
 
     private fun android.database.Cursor.int(column: String): Int? =
         getColumnIndex(column).takeIf { it >= 0 }?.let { getInt(it) }
+
+    /**
+     * Les identifiants d'Anki sont des horodatages en millisecondes : treize chiffres,
+     * bien au-dela d'un `Int`. Les lire avec `getInt` ne leve rien, cela rend un nombre
+     * tronque — donc un paquet introuvable, un nom vide, et une langue jamais detectee.
+     * Le journal de l'utilisateur portait 66 entrees sans nom de paquet a cause de cela.
+     */
+    private fun android.database.Cursor.long(column: String): Long? =
+        getColumnIndex(column).takeIf { it >= 0 }?.let { getLong(it) }
 
     /** `media_files` est un JSONArray serialise ; vide ou absent veut dire pas de media. */
     private fun hasMediaFiles(raw: String?): Boolean {

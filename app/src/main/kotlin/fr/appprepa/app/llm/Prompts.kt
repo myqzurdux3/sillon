@@ -1,6 +1,7 @@
 package fr.appprepa.app.llm
 
 import fr.appprepa.core.model.Ease
+import fr.appprepa.core.model.Intention
 import fr.appprepa.core.model.Judgement
 import fr.appprepa.core.model.Langue
 import fr.appprepa.core.model.ReformulatedQuestion
@@ -103,6 +104,27 @@ object Prompts {
         appendLine()
         appendLine(
             """
+            AVANT DE JUGER, demande-toi ce que l'élève voulait vraiment. Il conduit et
+            parle en phrases entières : il ne dit pas « répète », il dit « attends j'ai
+            pas bien entendu tu peux redire ». Renseigne alors "intention" :
+
+              "reponse"   il a répondu à la question. C'est le cas de loin le plus
+                          fréquent : dans le doute, c'est celui-là.
+              "repeter"   il demande à réentendre la question.
+              "passer"    il veut passer cette carte sans la noter.
+              "expliquer" il déclare ne pas savoir et demande la réponse.
+              "revenir"   il veut revenir sur la carte précédente pour la renoter.
+              "annuler"   il veut annuler la note de la carte précédente.
+              "arreter"   il veut terminer la session.
+
+            Une réponse partielle ou hésitante reste une "reponse" : « je crois que c'est
+            le théorème de Rolle mais je suis pas sûr » n'est pas une demande d'aide, c'est
+            une réponse à juger. Ne choisis autre chose que "reponse" que si la phrase est
+            une demande adressée à toi, et non une tentative de répondre.
+
+            Quand l'intention n'est pas "reponse", les autres champs sont ignorés : mets
+            verdict "faux", ease 1, spoken_feedback "".
+
             Juge le FOND, pas la forme sonore. La réponse vient d'une transcription
             automatique : les termes techniques peuvent être mal orthographiés ou coupés.
             Ne sanctionne jamais une erreur de transcription, seulement une erreur de savoir.
@@ -122,7 +144,7 @@ object Prompts {
             ${consigneLangue(langueCorrection)}
 
             Réponds par :
-            {"verdict":"...","ease":0,"spoken_feedback":"...",
+            {"intention":"...","verdict":"...","ease":0,"spoken_feedback":"...",
              "formulation_note":null,"topic":"..."}
             """.trimIndent(),
         )
@@ -188,7 +210,21 @@ object Prompts {
 
         val feedback = obj["spoken_feedback"]?.jsonPrimitive?.contentOrNull?.trim().orEmpty()
 
+        // Une intention absente ou inconnue vaut « il a repondu » : c'est le cas de loin
+        // le plus frequent, et s'y tromper coute une note, alors que se tromper dans
+        // l'autre sens ferait ignorer une vraie reponse.
+        val intention = when (obj["intention"]?.jsonPrimitive?.contentOrNull?.lowercase()?.trim()) {
+            "repeter" -> Intention.REPETER
+            "passer" -> Intention.PASSER
+            "expliquer" -> Intention.EXPLIQUER
+            "revenir" -> Intention.REVENIR
+            "annuler" -> Intention.ANNULER
+            "arreter" -> Intention.ARRETER
+            else -> Intention.REPONSE
+        }
+
         return Judgement(
+            intention = intention,
             verdict = verdict,
             ease = ease.clampTo(buttonCount),
             // Le code ne compte pas non plus sur le modele pour tenir sa longueur.

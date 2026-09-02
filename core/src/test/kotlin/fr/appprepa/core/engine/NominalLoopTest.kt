@@ -14,14 +14,15 @@ import org.junit.Test
 
 class NominalLoopTest {
 
-    private fun card(id: Long, media: Boolean = false) = ReviewCard(
+    /** [muette] : un verso sans texte, le seul motif qui ecarte vraiment une carte. */
+    private fun card(id: Long, muette: Boolean = false) = ReviewCard(
         noteId = id,
         cardOrd = 0,
         deckName = "Prepa",
         question = "recto $id",
-        answer = "verso $id",
+        answer = if (muette) "" else "verso $id",
         buttonCount = 4,
-        hasMedia = media,
+        hasMedia = muette,
     )
 
     private fun reformulated(id: Long) =
@@ -63,7 +64,7 @@ class NominalLoopTest {
         val loading = Session(state = SessionState.Loading)
         val result = ReviewSessionEngine.reduce(
             loading,
-            Event.CardsLoaded(listOf(card(1, media = true), card(2))),
+            Event.CardsLoaded(listOf(card(1, muette = true), card(2))),
             1_000L,
         )
         assertEquals(SessionState.Preparing(card(2)), result.session.state)

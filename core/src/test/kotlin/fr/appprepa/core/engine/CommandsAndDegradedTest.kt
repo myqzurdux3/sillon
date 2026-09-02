@@ -130,13 +130,30 @@ class CommandsAndDegradedTest {
         assertEquals(listOf(Effect.Speak("Je t'écoute.")), result.effects)
     }
 
+    /**
+     * Deux silences ne prouvent pas l'ignorance, seulement que rien n'a ete entendu. Le
+     * micro rend regulierement une transcription vide sur l'appareil de l'utilisateur —
+     * cinq des douze revisions de son journal. Noter « a revoir » a chaque fois abimerait
+     * le calendrier Anki sur la foi d'une panne.
+     */
     @Test
-    fun `un second silence note la carte a revoir`() {
+    fun `un second silence donne la reponse mais ne note rien`() {
         val session = listening(1).copy(retriedAnswer = true)
         val result = ReviewSessionEngine.reduce(session, Event.HeardNothing, 2_000L)
-        val state = result.session.state as SessionState.SpeakingVerdict
-        val assessment = state.assessment as Assessment.Judged
-        assertEquals(Ease.AGAIN, assessment.judgement.ease)
+
+        assertTrue(
+            "aucune note ne doit etre proposee",
+            result.effects.none { it is Effect.Commit },
+        )
+        val trace = result.effects.filterIsInstance<Effect.Record>().single()
+        assertEquals(null, trace.entry.proposedEase)
+        assertEquals(null, trace.entry.committedEase)
+        assertEquals("rien entendu, carte laissee due", trace.entry.note)
+
+        // Le verso est quand meme enonce : ne rien dire laisserait l'utilisateur sans
+        // rien apprendre de la carte qu'il vient de perdre.
+        val dit = result.effects.filterIsInstance<Effect.Speak>().first()
+        assertTrue(dit.text, dit.text.startsWith("Pas de réponse."))
     }
 
     @Test

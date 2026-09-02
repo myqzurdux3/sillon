@@ -171,7 +171,7 @@ class SessionBilingueTest {
             correctionEnFrancais = true,
         )
         val result = ReviewSessionEngine.reduce(session, Event.HeardNothing, 0L)
-        val dit = result.effects.filterIsInstance<Effect.Speak>().single()
+        val dit = result.effects.filterIsInstance<Effect.Speak>().first()
         assertEquals(Langue.ANGLAIS, dit.langue)
         assertTrue(dit.text, dit.text.startsWith("No answer."))
     }

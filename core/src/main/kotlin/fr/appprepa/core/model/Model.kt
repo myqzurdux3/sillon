@@ -62,7 +62,29 @@ data class Judgement(
     val spokenFeedback: String,
     val formulationNote: String?,
     val topic: String?,
+    /**
+     * Ce que l'utilisateur voulait vraiment, quand ce n'etait pas repondre.
+     *
+     * Les listes de mots-cles echouaient des que la demande depassait quelques mots.
+     * « j'ai pas bien entendu est-ce que tu peux répéter » etait note faux, tout comme
+     * « puis-je corriger la question d'avant » : douze mots la ou le parseur en tolerait
+     * quatre. Aucune liste ne rattrape ca, parce que personne ne parle en mots-cles. Le
+     * modele qui juge deja la reponse le dit dans le meme appel, sans latence de plus.
+     */
+    val intention: Intention = Intention.REPONSE,
 )
+
+/** Ce que l'utilisateur voulait, quand il a parle. */
+enum class Intention {
+    /** Il a repondu a la question. Le cas de loin le plus frequent. */
+    REPONSE,
+    REPETER,
+    PASSER,
+    EXPLIQUER,
+    REVENIR,
+    ANNULER,
+    ARRETER,
+}
 
 /** Contexte reinjecte dans les prompts, de taille bornee. */
 data class SessionMemory(
