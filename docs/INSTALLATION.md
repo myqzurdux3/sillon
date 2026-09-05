@@ -231,8 +231,8 @@ de savoir que tu as fini de parler. Android décomptait un silence — un régla
 tâtonné trois fois sans jamais l'entendre. Deepgram mesure l'écart entre deux mots. Dans
 une voiture le silence n'arrive jamais ; l'écart entre deux mots, si.
 
-**Ce que ça change pour la voix.** Deux voix françaises au choix dans les réglages,
-`agathe` et `hector`. La question de la carte suivante est synthétisée pendant que tu
+**Ce que ça change pour la voix.** Deux voix françaises au choix dans les réglages.
+`agathe` est celle que tu as retenue après écoute ; `hector` reste disponible. La question de la carte suivante est synthétisée pendant que tu
 réponds à la carte en cours, donc elle part sans attente. Seul le verdict coûte un
 aller-retour — il dépend de ta réponse, on ne peut pas le préparer d'avance.
 

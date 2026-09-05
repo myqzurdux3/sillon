@@ -201,7 +201,12 @@ class DeepgramSpeaker(
     companion object {
         private const val TAG = "DeepgramSpeaker"
 
-        /** Les deux seules voix francaises d'Aura-2. Le choix revient a l'utilisateur. */
+        /**
+         * Les deux seules voix francaises d'Aura-2. `agathe` est celle que l'utilisateur
+         * a retenue apres ecoute des deux, le 5 septembre 2026 ; `hector` reste
+         * proposee dans les reglages. Le critere n'est pas laquelle est la plus jolie sur
+         * une phrase, mais laquelle se supporte sur quarante cartes.
+         */
         const val VOIX_FR_DEFAUT = "aura-2-agathe-fr"
         val VOIX_FRANCAISES = listOf("aura-2-agathe-fr", "aura-2-hector-fr")
 
