@@ -170,7 +170,13 @@ class SessionLoop(
                     // Prechargement : en tache de fond, pendant que l'utilisateur parle.
                     prefetchJobs += scope.launch {
                         runCatching { tutor.reformulate(effect.card, effect.memory) }
-                            .onSuccess { queue += Event.Reformulated(effect.card, it) }
+                            .onSuccess {
+                                queue += Event.Reformulated(effect.card, it)
+                                // La question est connue avant d'etre posee : sa synthese
+                                // peut donc etre payee maintenant plutot que dans le
+                                // silence qui precede la carte suivante.
+                                runCatching { speaker.warm(it.question, effect.card.langue) }
+                            }
                     }
                 }
 

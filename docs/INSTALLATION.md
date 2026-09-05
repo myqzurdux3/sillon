@@ -217,6 +217,31 @@ l'API, pas supposé. S'il est ouvert un jour, le code sait déjà s'en servir �
 passer `fast` à `true` dans `AnthropicTutor`, et il retombe tout seul en vitesse normale
 si le quota se referme.
 
+## La voix et le micro par Deepgram
+
+Par défaut, l'application utilise la synthèse et la reconnaissance vocales d'Android.
+Elles sont gratuites, marchent hors réseau, et sont la cause de deux de tes reproches :
+la voix plate, et « il comprend un mot sur deux ».
+
+Colle une clé Deepgram dans **Réglages → Clé Deepgram** et les deux basculent. Il n'y a
+pas d'interrupteur séparé : la clé *est* l'interrupteur.
+
+**Ce que ça change pour le micro.** Le vrai gain n'est pas la transcription mais la façon
+de savoir que tu as fini de parler. Android décomptait un silence — un réglage que j'ai
+tâtonné trois fois sans jamais l'entendre. Deepgram mesure l'écart entre deux mots. Dans
+une voiture le silence n'arrive jamais ; l'écart entre deux mots, si.
+
+**Ce que ça change pour la voix.** Deux voix françaises au choix dans les réglages,
+`agathe` et `hector`. La question de la carte suivante est synthétisée pendant que tu
+réponds à la carte en cours, donc elle part sans attente. Seul le verdict coûte un
+aller-retour — il dépend de ta réponse, on ne peut pas le préparer d'avance.
+
+**Ce que ça coûte.** Environ 12 $ par mois sur ton rythme. Ta voix part chez un
+prestataire : c'est le vrai prix, pas les dollars.
+
+**Hors réseau.** Un tunnel ne rend pas la séance muette : l'application repasse
+automatiquement sur les moteurs Android, moins beaux mais toujours là.
+
 ## Les paquets en anglais
 
 L'application écoute dans la langue du paquet. Ce n'est pas un détail de confort : une

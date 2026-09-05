@@ -43,12 +43,40 @@ class DeepgramSpeaker(
     /** La lecture en cours, pour que [stop] puisse la couper depuis un autre fil. */
     private val enCours = AtomicReference<AudioTrack?>(null)
 
+    /**
+     * L'audio d'un seul enonce, prepare a l'avance. Un seul suffit : on ne prechauffe que
+     * la question de la carte suivante, et en garder plusieurs ferait payer des synthese
+     * jamais entendues quand la seance s'arrete.
+     */
+    private val prepare = AtomicReference<Pair<String, ByteArray>?>(null)
+
     @Volatile
     private var arrete = false
+
+    /**
+     * Synthetise sans jouer. L'echec est sans consequence : [speak] refera l'appel.
+     */
+    override suspend fun warm(text: String, langue: Langue) {
+        if (text.isBlank()) return
+        runCatching {
+            withContext(Dispatchers.IO) {
+                telecharger(text, langue)?.let { prepare.set(text to it) }
+            }
+        }
+    }
 
     override suspend fun speak(text: String, langue: Langue) {
         if (text.isBlank()) return
         arrete = false
+
+        // Si cet enonce est celui qu'on avait prepare, il part sans aller-retour.
+        prepare.getAndSet(null)?.let { (prevu, octets) ->
+            if (prevu == text) {
+                val joue = withContext(Dispatchers.IO) { jouer(octets.inputStream()) }
+                if (joue || arrete) return
+            }
+        }
+
         val joue = runCatching { diffuser(text, langue) }.getOrElse {
             Log.w(TAG, "synthese distante indisponible : ${it.message}")
             false
@@ -60,16 +88,7 @@ class DeepgramSpeaker(
 
     private suspend fun diffuser(text: String, langue: Langue): Boolean =
         withContext(Dispatchers.IO) {
-            val corps = JSONObject().put("text", text).toString()
-                .toRequestBody("application/json".toMediaType())
-
-            client.newCall(
-                Request.Builder()
-                    .url(url(langue))
-                    .header("Authorization", "Token $apiKey")
-                    .post(corps)
-                    .build(),
-            ).execute().use { reponse ->
+            appel(text, langue).use { reponse ->
                 if (!reponse.isSuccessful) {
                     Log.w(TAG, "synthese refusee : ${reponse.code}")
                     return@withContext false
@@ -78,6 +97,23 @@ class DeepgramSpeaker(
                 jouer(flux)
             }
         }
+
+    /** Recupere l'audio en entier, pour un enonce qui sera joue plus tard. */
+    private fun telecharger(text: String, langue: Langue): ByteArray? =
+        appel(text, langue).use { reponse ->
+            if (!reponse.isSuccessful) null else reponse.body?.bytes()
+        }
+
+    private fun appel(text: String, langue: Langue) = client.newCall(
+        Request.Builder()
+            .url(url(langue))
+            .header("Authorization", "Token $apiKey")
+            .post(
+                JSONObject().put("text", text).toString()
+                    .toRequestBody("application/json".toMediaType()),
+            )
+            .build(),
+    ).execute()
 
     /** Ecrit le flux dans la sortie audio au fil de son arrivee, puis attend la fin. */
     private fun jouer(flux: java.io.InputStream): Boolean {

@@ -92,6 +92,13 @@ Une commande doit **ouvrir** ta phrase et rester courte. Tu peux la dire naturel
 sûr, passe » compte comme une réponse. Les notes, elles, se disent d'un mot : élargir
 « bien » ou « faux » ferait passer des réponses pour des notes.
 
+**La voix et le micro peuvent passer par Deepgram.** Une clé dans les réglages suffit —
+elle fait office d'interrupteur. Le gain principal n'est pas la transcription mais la
+détection de fin de parole : Android décompte un silence, Deepgram mesure l'écart entre
+deux mots, et dans une voiture le silence n'arrive jamais. La question suivante est
+synthétisée pendant que tu réponds à la carte en cours. Hors réseau, l'application
+repasse toute seule sur les moteurs Android.
+
 **Les paquets en anglais sont écoutés en anglais.** Le nom du paquet décide au départ
 (« Anglais », « English »), et **Réglages → Langues des paquets** laisse trancher ligne
 par ligne. Sur ces paquets les commandes se disent en anglais — « repeat », « skip »,

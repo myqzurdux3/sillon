@@ -45,6 +45,18 @@ interface Tutor {
 interface Speaker {
     suspend fun speak(text: String, langue: Langue = Langue.FRANCAIS)
     fun stop()
+
+    /**
+     * Prepare un enonce sans le dire, si l'implementation sait le faire.
+     *
+     * Une synthese distante coute un aller-retour avant le premier mot. Celui de la
+     * question est evitable : elle est connue pendant que l'utilisateur repond encore a
+     * la carte precedente. Celui du verdict ne l'est pas, il depend de la reponse.
+     *
+     * Sans effet par defaut : une synthese embarquee n'a rien a prechauffer, et un
+     * echec de prechauffage ne doit jamais empecher de parler ensuite.
+     */
+    suspend fun warm(text: String, langue: Langue = Langue.FRANCAIS) = Unit
 }
 
 sealed interface ListenResult {

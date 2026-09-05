@@ -25,7 +25,7 @@ trajet quotidien d'environ 20 à 40 minutes.
 | Source de vérité | La collection AnkiDroid locale — pas de PC, pas de serveur |
 | Réseau | 4G/5G stable sur le trajet ; le cloud est autorisé, mais la perte de réseau ne doit pas casser la session |
 | Forme de l'app | Application Android native Kotlin |
-| Pile vocale | STT et TTS système Android + LLM distant. Couche voix abstraite pour pouvoir passer au speech-to-speech temps réel plus tard sans réécrire le reste |
+| Pile vocale | STT et TTS distants (Deepgram), repli sur les moteurs Android hors réseau. La couche voix reste abstraite : c'est elle qui a permis d'échanger toute la pile sans toucher au moteur |
 | Style d'interrogation | Reformulation conversationnelle, l'IA propose la note, l'utilisateur peut corriger à la voix |
 | Priorité non fonctionnelle | La vitesse. Une reformulation brillante mais lente est un échec produit |
 
@@ -107,11 +107,25 @@ Cette table ne contient **pas** le texte des cartes. Il faut ensuite interroger
 `button_count` vaut 2 à 4 selon la carte : la note proposée par le LLM est **bornée à
 cet intervalle** avant écriture.
 
-### Cartes à média
+### Cartes écartées
 
-Si `media_files` est non vide, la carte dépend d'une image ou d'un son. En voiture elle
-est inutilisable : **v1 l'écarte sans la noter**, l'enregistre au journal, et passe à la
-suivante. Elle restera due pour une révision à l'écran.
+La première règle testait `media_files` : une carte portant un fichier joint était
+écartée. Sur la collection réelle, elle retirait **96 % des cartes** — 259 entrées de
+journal sur 271, jusqu'à 20 sur 20 en une séance — dont 233 dont le recto était du texte
+parfaitement lisible. Un schéma à côté d'une définition écrite ne rend pas la carte
+muette.
+
+La règle porte donc sur **ce qu'il y a à lire et à comparer** (`Usability`), pas sur ce
+qui est attaché : une carte est écartée quand son recto ou son verso ne contient plus
+aucune lettre ni aucun chiffre une fois le HTML retiré. Le seuil est d'un seul caractère,
+délibérément : toute valeur au-dessus serait une supposition sur ce qui fait « assez de
+texte », et c'est cette supposition qui avait produit la règle précédente.
+
+Reste le cas des versos qui sont **vraiment** des images — majoritaire dans cette
+collection. Les lire demanderait la vision du modèle, donc l'accès aux fichiers média.
+Cet accès est fermé : la collection vit sous `Android/data`, qu'Android interdit à toute
+autre application (vérifié à l'identité de l'app : `Permission denied`), et le
+`ContentProvider` d'AnkiDroid ne sait qu'insérer des média, pas les lire. Non résolu.
 
 ## 6. Machine à états de session
 
@@ -174,9 +188,43 @@ silence qui la clôt est fixé à 2 s, et le dépassement est rattrapé par la r
 n'ajoute que du blanc entre deux cartes. Ce silence est du temps mort pur, l'utilisateur
 a fini de parler et attend : c'est le poste de latence le moins visible et le plus payant.
 
-Implémentation v1 : `TextToSpeech` et `SpeechRecognizer` d'Android, en français. Pas
-d'interruption de la parole de l'IA en v1 — la commande « répète » couvre le besoin réel
-à moindre risque.
+### Deux implémentations, un interrupteur
+
+La présence d'une clé Deepgram dans les réglages fait basculer la voix **et** le micro
+vers le service distant. Il n'y a pas d'interrupteur séparé : une clé sans interrupteur,
+ou un interrupteur sans clé, sont deux façons de ne pas marcher sans que l'utilisateur
+comprenne pourquoi.
+
+**Micro — `DeepgramListener`.** Le motif principal n'est pas la qualité de transcription
+mais la **détection de fin de parole**. `SpeechRecognizer` décide sur un compte à rebours
+de silence, réglé trois fois de suite au jugé et jamais entendu ; Deepgram décide sur
+l'écart entre deux mots. Dans un habitacle, le silence n'arrive jamais — l'écart entre
+deux mots, si. Deux chemins de clôture sont acceptés, `speech_final` et `UtteranceEnd`,
+parce qu'ils échouent dans des situations différentes.
+
+Le recollement des morceaux vit dans `:core` (`TurnAccumulator`), parce que c'est le seul
+endroit du chemin vocal éprouvable sans micro, sans réseau et sans appareil. Le piège
+qu'il traite : un résultat définitif **conclut** le provisoire qu'il corrige. Les
+additionner ferait dire deux fois le même morceau de phrase au modèle.
+
+**Voix — `DeepgramSpeaker`.** L'audio est joué pendant qu'il arrive. Ce n'est pas une
+optimisation mais la condition d'usage : mesuré sur une question réelle, le premier octet
+arrive à 1,0 s et le fichier complet à 3,8 s. Attendre le fichier ajouterait près de huit
+secondes de silence par carte. Le format demandé est du PCM brut, joué directement par
+`AudioTrack` sans décodeur.
+
+La question de la carte suivante est **synthétisée à l'avance**, pendant que l'utilisateur
+répond à la carte en cours — c'est le rôle de `Speaker.warm`. Le verdict, lui, ne peut pas
+l'être : il dépend de la réponse. Le préchauffage supprime donc la moitié de la latence
+ajoutée.
+
+**Repli.** Une panne — tunnel, quota, réseau coupé — repasse par `TextToSpeech` et
+`SpeechRecognizer`. Une voix moins belle qui parle vaut infiniment mieux qu'une belle voix
+muette : sans repli, la séance continuerait à l'aveugle. C'est le même raisonnement que
+pour le mode dégradé du LLM.
+
+Pas d'interruption de la parole de l'IA — la commande « répète » couvre le besoin réel à
+moindre risque.
 
 ### Les trois langues d'une session
 
@@ -210,7 +258,7 @@ l'autre langue. Ils n'ont pas non plus la même tolérance : un verbe de command
 tête d'une phrase de deux mots en français, d'un seul en anglais, où les mots de commande
 sont aussi des noms courants (« a stop consonant », « back formation »).
 
-### Choix de la voix
+### Choix de la voix embarquée (repli)
 
 Le moteur retient la première voix française venue, souvent la plus pauvre. L'adaptateur
 classe les voix installées par qualité déclarée, puis par latence de démarrage, et
