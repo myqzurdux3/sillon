@@ -13,8 +13,8 @@ android {
         applicationId = "fr.appprepa.app"
         minSdk = 31
         targetSdk = 36
-        versionCode = 4
-        versionName = "0.4"
+        versionCode = 5
+        versionName = "0.5"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -48,8 +48,11 @@ dependencies {
 
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.serialization.json)
-    // OkHttp arrive avec anthropic-java-client-okhttp : rien ici ne l'appelle en direct.
     implementation(libs.anthropic.java)
+    // Le flux vers Deepgram parle WebSocket : OkHttp est appele en direct, et donc
+    // declare en direct. L'obtenir par transitivite du SDK Anthropic marcherait
+    // jusqu'au jour ou ce SDK changerait de client HTTP.
+    implementation(libs.okhttp)
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)

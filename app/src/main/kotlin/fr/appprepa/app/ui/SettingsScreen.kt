@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import fr.appprepa.app.settings.ALL_CARDS
 import fr.appprepa.app.settings.SettingsStore
+import fr.appprepa.app.voice.DeepgramSpeaker
 import fr.appprepa.core.model.WriteMode
 
 /** Tout ce qui ne doit pas encombrer l'ecran de conduite vit ici. */
@@ -57,6 +58,9 @@ fun SettingsScreen(
     var limit by remember { mutableIntStateOf(settings.cardLimit) }
     var fastJudge by remember { mutableStateOf(settings.fastJudge) }
     var rate by remember { mutableFloatStateOf(settings.speechRate) }
+    var deepgramKey by remember { mutableStateOf(settings.deepgramKey) }
+    var revealDeepgram by remember { mutableStateOf(false) }
+    var voix by remember { mutableStateOf(settings.voixDeepgram) }
 
     Column(
         modifier = Modifier
@@ -106,6 +110,75 @@ fun SettingsScreen(
             },
             modifier = Modifier.fillMaxWidth(),
         )
+
+        OutlinedTextField(
+            value = deepgramKey,
+            onValueChange = {
+                deepgramKey = it
+                settings.deepgramKey = it
+            },
+            label = { Text("Clé Deepgram (voix et micro)") },
+            singleLine = true,
+            visualTransformation = if (revealDeepgram) {
+                VisualTransformation.None
+            } else {
+                PasswordVisualTransformation()
+            },
+            trailingIcon = {
+                TextButton(onClick = { revealDeepgram = !revealDeepgram }) {
+                    Text(
+                        if (revealDeepgram) "masquer" else "voir",
+                        fontSize = 13.sp,
+                        color = SillonPalette.faint,
+                    )
+                }
+            },
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Text(
+            text = if (deepgramKey.isBlank()) {
+                "Vide, l'application utilise la voix et le micro d'Android. " +
+                    "Renseignée, elle passe par Deepgram — meilleure transcription, " +
+                    "voix plus naturelle, et repli automatique sur Android hors réseau."
+            } else {
+                "Voix et micro par Deepgram. Repli sur Android si le réseau lâche."
+            },
+            style = MaterialTheme.typography.bodySmall,
+            color = SillonPalette.faint,
+        )
+
+        if (deepgramKey.isNotBlank()) {
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(
+                    "Voix française",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onBackground,
+                )
+                Text(
+                    "Aura-2 n'en propose que deux. S'applique à la prochaine session.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = SillonPalette.faint,
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+                    DeepgramSpeaker.VOIX_FRANCAISES.forEach { choix ->
+                        Text(
+                            // « aura-2-agathe-fr » ne dit rien : on garde le prenom.
+                            text = choix.removePrefix("aura-2-").removeSuffix("-fr"),
+                            fontSize = 17.sp,
+                            color = if (choix == voix) {
+                                SillonPalette.accent
+                            } else {
+                                SillonPalette.faint
+                            },
+                            modifier = Modifier.clickable {
+                                voix = choix
+                                settings.voixDeepgram = choix
+                            },
+                        )
+                    }
+                }
+            }
+        }
 
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(

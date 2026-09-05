@@ -17,9 +17,12 @@ import fr.appprepa.app.llm.AnthropicTutor
 import fr.appprepa.app.settings.SettingsStore
 import fr.appprepa.app.voice.AndroidListener
 import fr.appprepa.app.ui.MainActivity
+import fr.appprepa.app.voice.DeepgramSpeaker
+import fr.appprepa.app.voice.DeepgramListener
 import fr.appprepa.app.voice.AndroidSpeaker
 import fr.appprepa.core.engine.SessionLoop
 import fr.appprepa.core.ports.Clock
+import fr.appprepa.core.ports.Speaker
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -102,6 +105,23 @@ class SessionService : Service() {
         // Une perte definitive du focus arrete la session au lieu de la figer.
         val guard = AudioFocusGuard(this) { loop?.requestStop() }
 
+        // La cle Deepgram est l'interrupteur : presente, la voix et le micro passent par
+        // le service distant. La synthese embarquee reste derriere en repli — un tunnel
+        // ne doit pas rendre la seance muette, il doit la rendre moins jolie.
+        val cleDeepgram = settings.deepgramKey
+        val distant = cleDeepgram.isNotBlank()
+
+        val voix: Speaker = if (distant) {
+            DeepgramSpeaker(
+                apiKey = cleDeepgram,
+                repli = tts,
+                voixFrancaise = settings.voixDeepgram,
+                accentAnglais = settings.accentAnglais.locale,
+            )
+        } else {
+            tts
+        }
+
         val session = SessionLoop(
             gateway = AnkiDroidGateway(contentResolver) { settings.englishDeckIds },
             tutor = AnthropicTutor(
@@ -112,11 +132,11 @@ class SessionService : Service() {
                     AnthropicTutor.MODEL
                 },
             ),
-            speaker = FocusAwareSpeaker(tts, guard),
-            listener = if (settings.debugTranscripts) {
-                DebugListener.shared
-            } else {
-                AndroidListener(this, settings.accentAnglais.locale)
+            speaker = FocusAwareSpeaker(voix, guard),
+            listener = when {
+                settings.debugTranscripts -> DebugListener.shared
+                distant -> DeepgramListener(cleDeepgram, settings.accentAnglais.locale)
+                else -> AndroidListener(this, settings.accentAnglais.locale)
             },
             journal = JsonlJournal(File(filesDir, "journal.jsonl")),
             clock = object : Clock {

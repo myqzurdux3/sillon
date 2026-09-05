@@ -24,13 +24,16 @@ import java.io.File
  */
 object CleDeTest {
 
-    private const val CHEMIN = "/sdcard/Android/media/fr.appprepa.app/cle.txt"
+    private const val DOSSIER = "/sdcard/Android/media/fr.appprepa.app"
 
-    val valeur: String
-        get() {
-            val fichier = File(CHEMIN)
-            return runCatching { fichier.readText().trim() }.getOrDefault("")
-        }
+    /** La cle Anthropic. */
+    val valeur: String get() = lire("cle.txt")
+
+    /** La cle Deepgram, pour les tests qui touchent la pile vocale. */
+    val deepgram: String get() = lire("deepgram.txt")
+
+    private fun lire(nom: String): String =
+        runCatching { File("$DOSSIER/$nom").readText().trim() }.getOrDefault("")
 
     /** Le contexte de l'application visee, la ou vivent ses fichiers et ses reglages. */
     fun targetContext() = InstrumentationRegistry.getInstrumentation().targetContext

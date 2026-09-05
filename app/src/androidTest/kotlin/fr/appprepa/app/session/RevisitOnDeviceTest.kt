@@ -51,8 +51,9 @@ class RevisitOnDeviceTest {
             expectedPoints: List<String>,
             transcript: String,
             memory: SessionMemory,
+            langueCorrection: Langue,
         ) = Judgement(Verdict.CORRECT, Ease.GOOD, "retour", null, "theme")
-        override suspend fun explain(card: ReviewCard) = "explication ${card.noteId}"
+        override suspend fun explain(card: ReviewCard, langueCorrection: Langue) = "explication ${card.noteId}"
     }
 
     private class Mute : Speaker {

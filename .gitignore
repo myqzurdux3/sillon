@@ -14,5 +14,9 @@ secrets.properties
 *.apkg
 ankidroid-*.apk
 
-# secret, jamais versionne
+# secrets, jamais versionnes
 api-key.txt
+deepgram-api-key.txt
+elevenlabs-key.txt
+*-api-key.txt
+*-key.txt

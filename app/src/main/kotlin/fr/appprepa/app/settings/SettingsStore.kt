@@ -7,6 +7,7 @@ import androidx.core.content.edit
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import fr.appprepa.app.voice.AndroidSpeaker
+import fr.appprepa.app.voice.DeepgramSpeaker
 import fr.appprepa.core.model.WriteMode
 
 /** Plafond « tout » : au-dela d'un trajet, la limite n'a plus de sens. */
@@ -129,6 +130,21 @@ class SettingsStore(context: Context) {
         get() = prefs.getBoolean(KEY_CORRECTION_FR, true)
         set(value) = prefs.edit { putBoolean(KEY_CORRECTION_FR, value) }
 
+    /**
+     * La cle Deepgram. Sa seule presence fait basculer la voix et le micro vers le
+     * service distant : il n'y a pas d'interrupteur separe, parce qu'un interrupteur
+     * arme sans cle, ou une cle sans interrupteur, sont deux facons de ne pas marcher
+     * sans que l'utilisateur comprenne pourquoi.
+     */
+    var deepgramKey: String
+        get() = prefs.getString(KEY_DEEPGRAM, "").orEmpty()
+        set(value) = prefs.edit { putString(KEY_DEEPGRAM, value.trim()) }
+
+    /** La voix francaise d'Aura-2. Aura-2 n'en propose que deux. */
+    var voixDeepgram: String
+        get() = prefs.getString(KEY_VOIX, null) ?: DeepgramSpeaker.VOIX_FR_DEFAUT
+        set(value) = prefs.edit { putString(KEY_VOIX, value) }
+
     /** Repondre au clavier au lieu du micro, pour la mise au point. */
     var debugTranscripts: Boolean
         get() = prefs.getBoolean(KEY_DEBUG, false)
@@ -154,5 +170,7 @@ class SettingsStore(context: Context) {
         private const val KEY_LANG_SET = "langues_configurees"
         private const val KEY_ACCENT = "accent_anglais"
         private const val KEY_CORRECTION_FR = "correction_en_francais"
+        private const val KEY_DEEPGRAM = "deepgram_key"
+        private const val KEY_VOIX = "voix_deepgram"
     }
 }
