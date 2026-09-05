@@ -59,6 +59,7 @@ class RevisitOnDeviceTest {
     private class Mute : Speaker {
         val said = mutableListOf<String>()
         override suspend fun speak(text: String, langue: Langue) { said += text }
+        override suspend fun warm(text: String, langue: Langue) = Unit
         override fun stop() = Unit
     }
 

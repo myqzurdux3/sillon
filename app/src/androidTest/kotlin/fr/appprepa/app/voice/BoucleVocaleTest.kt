@@ -88,6 +88,7 @@ class BoucleVocaleTest {
     /** Un repli qui ne parle pas : le test doit echouer si Deepgram ne repond pas. */
     private object MuetSpeaker : Speaker {
         override suspend fun speak(text: String, langue: Langue) = Unit
+        override suspend fun warm(text: String, langue: Langue) = Unit
         override fun stop() = Unit
     }
 

@@ -81,6 +81,9 @@ class FakeTutor(
 class FakeSpeaker : Speaker {
     val spoken = mutableListOf<String>()
 
+    /** Ce qui a ete prechauffe, pour verifier que la delegation ne se perd pas en route. */
+    val warmed = mutableListOf<String>()
+
     /** La langue de chaque enonce : c'est elle qui choisit la voix sur l'appareil. */
     val langues = mutableListOf<Langue>()
 
@@ -88,6 +91,8 @@ class FakeSpeaker : Speaker {
         spoken += text
         langues += langue
     }
+
+    override suspend fun warm(text: String, langue: Langue) { warmed += text }
 
     override fun stop() = Unit
 }

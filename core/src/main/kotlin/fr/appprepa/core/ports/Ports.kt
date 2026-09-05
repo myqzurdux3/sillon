@@ -53,10 +53,14 @@ interface Speaker {
      * question est evitable : elle est connue pendant que l'utilisateur repond encore a
      * la carte precedente. Celui du verdict ne l'est pas, il depend de la reponse.
      *
-     * Sans effet par defaut : une synthese embarquee n'a rien a prechauffer, et un
-     * echec de prechauffage ne doit jamais empecher de parler ensuite.
+     * Volontairement sans implementation par defaut, malgre les quelques lignes que
+     * cela coute aux implementations qui n'en ont pas besoin. Un defaut vide avait deja
+     * rendu le prechauffage inoperant en silence : `FocusAwareSpeaker`, qui enveloppe le
+     * locuteur reel, heritait du defaut au lieu de deleguer, et rien ne le signalait. Une
+     * methode que l'on peut oublier dans un decorateur doit etre imposee par le
+     * compilateur, pas confiee a l'attention.
      */
-    suspend fun warm(text: String, langue: Langue = Langue.FRANCAIS) = Unit
+    suspend fun warm(text: String, langue: Langue = Langue.FRANCAIS)
 }
 
 sealed interface ListenResult {

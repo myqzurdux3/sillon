@@ -161,6 +161,9 @@ class AndroidSpeaker(
         done.await()
     }
 
+    /** Rien a prechauffer : la synthese embarquee n'a pas d'aller-retour a payer. */
+    override suspend fun warm(text: String, langue: Langue) = Unit
+
     override fun stop() {
         engine.stop()
         pending.values.forEach { it.complete(Unit) }

@@ -85,5 +85,11 @@ class FocusAwareSpeaker(
         delegate.speak(text, langue)
     }
 
+    /**
+     * Prechauffer ne produit aucun son : cela n'a pas a attendre le focus audio, et
+     * l'attendre retarderait la preparation pendant qu'un GPS parle par-dessus.
+     */
+    override suspend fun warm(text: String, langue: Langue) = delegate.warm(text, langue)
+
     override fun stop() = delegate.stop()
 }
