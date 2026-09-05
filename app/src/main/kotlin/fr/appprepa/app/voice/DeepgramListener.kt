@@ -41,6 +41,15 @@ import java.util.concurrent.atomic.AtomicBoolean
  */
 class DeepgramListener(
     private val apiKey: String,
+    /**
+     * Le moteur embarque, utilise des que le service distant echoue.
+     *
+     * La synthese avait deja son repli ; l'ecoute n'en avait pas, et l'asymetrie etait
+     * une faute : dans un tunnel, la voix serait restee et l'oreille serait morte. Deux
+     * echecs d'ecoute de suite arretent la seance — un tunnel de trente secondes aurait
+     * donc mis fin au trajet.
+     */
+    private val repli: Listener,
     private val accentAnglais: Locale = Locale.UK,
     private val client: OkHttpClient = defaultClient(),
     private val micro: () -> MicrophoneStream = { MicrophoneStream() },
@@ -49,6 +58,22 @@ class DeepgramListener(
     private val json = Json { ignoreUnknownKeys = true }
 
     override suspend fun listen(
+        kind: ListenKind,
+        timeoutMs: Long,
+        langue: Langue,
+    ): ListenResult {
+        val resultat = distant(kind, timeoutMs, langue)
+        // Un echec technique bascule sur le moteur embarque plutot que de compter comme
+        // un echec d'ecoute : c'est le reseau qui a lache, pas l'utilisateur qui se tait.
+        return if (resultat is ListenResult.Failure) {
+            Log.w(TAG, "ecoute distante indisponible, repli embarque : ${resultat.cause}")
+            repli.listen(kind, timeoutMs, langue)
+        } else {
+            resultat
+        }
+    }
+
+    private suspend fun distant(
         kind: ListenKind,
         timeoutMs: Long,
         langue: Langue,

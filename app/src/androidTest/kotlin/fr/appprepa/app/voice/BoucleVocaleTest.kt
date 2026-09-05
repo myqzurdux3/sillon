@@ -51,7 +51,9 @@ class BoucleVocaleTest {
             AndroidListener.unavailableReason(CleDeTest.targetContext()) == null,
         )
 
-        val listener = DeepgramListener(cle)
+        // Repli volontairement muet : le test doit echouer si Deepgram ne repond pas,
+        // pas basculer en silence sur le moteur Android et sembler passer.
+        val listener = DeepgramListener(cle, repli = SourdListener)
         val speaker = DeepgramSpeaker(cle, repli = MuetSpeaker)
 
         val entendu = withContext(Dispatchers.Default) {
@@ -87,6 +89,12 @@ class BoucleVocaleTest {
     private object MuetSpeaker : Speaker {
         override suspend fun speak(text: String, langue: Langue) = Unit
         override fun stop() = Unit
+    }
+
+    /** Meme raison pour l'oreille : un repli silencieux, pour ne rien masquer. */
+    private object SourdListener : fr.appprepa.core.ports.Listener {
+        override suspend fun listen(kind: ListenKind, timeoutMs: Long, langue: Langue) =
+            ListenResult.Failure("repli desactive pour le test")
     }
 
     private companion object {

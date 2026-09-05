@@ -135,7 +135,11 @@ class SessionService : Service() {
             speaker = FocusAwareSpeaker(voix, guard),
             listener = when {
                 settings.debugTranscripts -> DebugListener.shared
-                distant -> DeepgramListener(cleDeepgram, settings.accentAnglais.locale)
+                distant -> DeepgramListener(
+                    apiKey = cleDeepgram,
+                    repli = AndroidListener(this, settings.accentAnglais.locale),
+                    accentAnglais = settings.accentAnglais.locale,
+                )
                 else -> AndroidListener(this, settings.accentAnglais.locale)
             },
             journal = JsonlJournal(File(filesDir, "journal.jsonl")),
