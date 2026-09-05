@@ -185,13 +185,24 @@ class DeepgramListener(
         const val MODEL = "nova-3"
 
         /**
-         * Les deux fenetres, en millisecondes. Elles gardent les valeurs eprouvees avec
-         * l'ancien moteur faute de mieux, mais elles ne veulent plus dire la meme chose :
-         * il s'agit d'un ecart entre deux mots, pas d'un silence acoustique. Un habitacle
-         * bruyant ne les declenche plus a tort.
+         * Les deux fenetres, en millisecondes, mesurees en rejouant de l'audio reel dans
+         * l'endpoint temps reel plutot que choisies au juge.
+         *
+         * Une phrase portant une pause de reflexion de deux secondes en son milieu — ce
+         * que l'utilisateur a explicitement demande de ne pas couper — est tranchee a
+         * 1 000, 1 500 et 2 000 ms. Elle survit a 2 500. C'est donc 2 500 pour une
+         * reponse, et le surcout est assume : se faire couper au milieu d'un raisonnement
+         * est pire que d'attendre une demi-seconde de plus.
+         *
+         * Une correction est un mot connu d'avance, sans pause possible : 1 000 ms
+         * suffisent, et le meme audio s'y transcrit sans perte.
+         *
+         * Ce que ces valeurs ne couvrent pas : une pause de plus de deux secondes et
+         * demie coupe toujours. C'est la relance (`Utterance`) qui doit rattraper ce
+         * cas-la, et elle ne le fait que sur un mot en suspens.
          */
-        const val SILENCE_REPONSE_MS = 2_000
-        const val SILENCE_CORRECTION_MS = 1_100
+        const val SILENCE_REPONSE_MS = 2_500
+        const val SILENCE_CORRECTION_MS = 1_000
 
         /** Le service veut ce message pour finir proprement plutot que d'etre coupe. */
         const val FERMETURE = """{"type":"CloseStream"}"""
