@@ -6,6 +6,14 @@
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <!--
+        Depuis Android 14, un service de premier plan qui capte le micro doit le declarer,
+        faute de quoi la capture rend du silence — des zeros, sans erreur ni exception.
+        L'ancien moteur passait par le service de reconnaissance du systeme et n'etait donc
+        pas concerne ; celui-ci ouvre lui-meme un AudioRecord. Sans cette ligne, chaque
+        carte se serait soldee par « rien entendu », en voiture et sans le moindre signe.
+    -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
     <uses-permission android:name="com.ichi2.anki.permission.READ_WRITE_DATABASE" />
 
     <queries>
@@ -39,6 +47,6 @@
         <service
             android:name=".session.SessionService"
             android:exported="false"
-            android:foregroundServiceType="mediaPlayback" />
+            android:foregroundServiceType="mediaPlayback|microphone" />
     </application>
 </manifest>
