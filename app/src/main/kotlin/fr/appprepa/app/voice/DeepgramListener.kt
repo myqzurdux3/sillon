@@ -101,11 +101,19 @@ class DeepgramListener(
                 // bloquante et ne doit pas retarder la reception des transcriptions.
                 val pompe = launch {
                     val buffer = ByteArray(MicrophoneStream.TAILLE_PAQUET)
+                    var octets = 0L
+                    var crete = 0
                     while (!envoiTermine.get()) {
                         val lus = micDispo.read(buffer)
                         if (lus <= 0) break
+                        octets += lus
+                        crete = maxOf(crete, amplitude(buffer, lus))
                         if (!socket.send(buffer.toByteString(0, lus))) break
                     }
+                    // Ce qui a reellement ete envoye. Sans cette trace, un tour muet ne
+                    // distingue pas un micro qui n'entend rien d'une chaine cassee plus
+                    // loin — c'est precisement la question qu'un « Silence » laisse ouverte.
+                    Log.i(TAG, "envoye : $octets octets, amplitude crete $crete")
                 }
 
                 val texte = try {
@@ -134,6 +142,20 @@ class DeepgramListener(
             runCatching { socket.send(FERMETURE) }
             runCatching { socket.close(1000, null) }
         }
+    }
+
+    /** Le niveau le plus fort du paquet, en PCM 16 bits signe. */
+    private fun amplitude(buffer: ByteArray, taille: Int): Int {
+        var max = 0
+        var i = 0
+        while (i + 1 < taille) {
+            val echantillon = ((buffer[i + 1].toInt() shl 8) or (buffer[i].toInt() and 0xFF))
+                .toShort().toInt()
+            val absolu = if (echantillon < 0) -echantillon else echantillon
+            if (absolu > max) max = absolu
+            i += 2
+        }
+        return max
     }
 
     private fun ecouteur(

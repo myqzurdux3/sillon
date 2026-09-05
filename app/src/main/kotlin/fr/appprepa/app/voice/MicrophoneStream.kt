@@ -19,7 +19,19 @@ import android.util.Log
  * suppression de bruit et de l'echo du constructeur, ce qui compte dans une voiture bien
  * plus qu'ailleurs.
  */
-class MicrophoneStream {
+class MicrophoneStream(
+    /**
+     * La source de capture. Par defaut [MediaRecorder.AudioSource.VOICE_RECOGNITION],
+     * qui applique la suppression de bruit et d'echo du constructeur — ce qui compte dans
+     * une voiture bien plus qu'ailleurs.
+     *
+     * Le parametre n'existe que pour un test : la suppression d'echo a precisement pour
+     * travail de retirer du micro ce que l'appareil vient de jouer, et elle empeche donc
+     * un appareil de s'entendre lui-meme. Un test qui fait faire a une phrase le tour du
+     * materiel doit pouvoir la contourner, sans quoi il ne prouve rien.
+     */
+    private val source: Int = MediaRecorder.AudioSource.VOICE_RECOGNITION,
+) {
 
     private var record: AudioRecord? = null
 
@@ -35,7 +47,7 @@ class MicrophoneStream {
         )
         val nouveau = runCatching {
             AudioRecord(
-                MediaRecorder.AudioSource.VOICE_RECOGNITION,
+                source,
                 SAMPLE_RATE,
                 CHANNEL,
                 FORMAT,
