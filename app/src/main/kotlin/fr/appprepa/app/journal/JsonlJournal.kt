@@ -1,6 +1,7 @@
 package fr.appprepa.app.journal
 
 import fr.appprepa.core.model.Ease
+import fr.appprepa.core.model.Intention
 import fr.appprepa.core.model.JournalRecord
 import fr.appprepa.core.model.Verdict
 import fr.appprepa.core.model.WriteMode
@@ -40,6 +41,10 @@ class JsonlJournal(
         val verdict: String? = null,
         val mode: String,
         val note: String? = null,
+        /** Le silence subi entre la fin de la reponse et le verdict, en millisecondes. */
+        val attenteMs: Long? = null,
+        /** Ce que le modele a lu : une reponse, ou une demande. */
+        val intention: String? = null,
     )
 
     override suspend fun record(entry: JournalRecord) {
@@ -103,6 +108,8 @@ class JsonlJournal(
         verdict = verdict?.name,
         mode = mode.name,
         note = note,
+        attenteMs = attenteMs,
+        intention = intention?.name,
     )
 
     private fun Row.toRecord() = JournalRecord(
@@ -117,5 +124,8 @@ class JsonlJournal(
         verdict = verdict?.let { runCatching { Verdict.valueOf(it) }.getOrNull() },
         mode = runCatching { WriteMode.valueOf(mode) }.getOrDefault(WriteMode.JOURNAL_ONLY),
         note = note,
+        attenteMs = attenteMs,
+        // Les lignes ecrites avant l'ajout du champ n'en ont pas : on ne suppose rien.
+        intention = intention?.let { runCatching { Intention.valueOf(it) }.getOrNull() },
     )
 }

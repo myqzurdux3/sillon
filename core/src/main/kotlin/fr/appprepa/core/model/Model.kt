@@ -131,4 +131,20 @@ data class JournalRecord(
     val verdict: Verdict?,
     val mode: WriteMode,
     val note: String? = null,
+    /**
+     * Le silence subi entre la fin de la reponse et le debut du verdict, en
+     * millisecondes.
+     *
+     * C'est le seul temps d'attente que l'utilisateur vit reellement : il a fini de
+     * parler et il attend. Le journal l'enregistre parce que « c'est trop lent » est
+     * un ressenti, et qu'il a fallu trois series de corrections a l'aveugle avant de
+     * comprendre que le probleme etait ailleurs. Nul quand la carte n'a pas ete jugee.
+     */
+    val attenteMs: Long? = null,
+    /**
+     * Ce que le modele a lu dans la phrase : une reponse, ou une demande. Enregistre
+     * parce que des demandes notees fausses — « tu peux répéter » — n'etaient
+     * reconnaissables dans l'ancien journal qu'en relisant les transcriptions une par une.
+     */
+    val intention: Intention? = null,
 )

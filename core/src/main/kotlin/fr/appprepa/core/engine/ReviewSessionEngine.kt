@@ -176,6 +176,7 @@ object ReviewSessionEngine {
                         state.inFlight,
                         state.assessment,
                         state.transcript,
+                        state.attenteMs,
                     ),
                 ),
                 listOf(
@@ -369,7 +370,9 @@ object ReviewSessionEngine {
         )
 
         VoiceCommand.Explain -> Reduction(
-            session.copy(state = SessionState.Judging(state.inFlight, transcript)),
+            session.copy(
+                state = SessionState.Judging(state.inFlight, transcript, nowMs),
+            ),
             listOf(Effect.Explain(state.inFlight.card, langueVerdict(session, state.inFlight))),
         )
 
@@ -418,7 +421,9 @@ object ReviewSessionEngine {
             speakAnswerForSelfGrade(session, state.inFlight, transcript)
         } else {
             Reduction(
-                session.copy(state = SessionState.Judging(state.inFlight, transcript)),
+                session.copy(
+                    state = SessionState.Judging(state.inFlight, transcript, nowMs),
+                ),
                 listOf(
                     Effect.Judge(
                         card = state.inFlight.card,
@@ -716,6 +721,7 @@ object ReviewSessionEngine {
                     state.inFlight,
                     Assessment.Judged(bounded),
                     state.transcript,
+                    attenteMs = nowMs - state.heardAtMs,
                 ),
             ),
             listOf(
@@ -851,6 +857,8 @@ object ReviewSessionEngine {
             committedEase = committed(session, ease),
             verdict = judgement?.verdict,
             mode = session.writeMode,
+            attenteMs = state.attenteMs,
+            intention = judgement?.intention,
         )
 
         // La file deborde : la plus ancienne part a l'ecriture.

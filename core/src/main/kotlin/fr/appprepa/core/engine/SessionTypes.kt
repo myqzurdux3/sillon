@@ -55,17 +55,26 @@ sealed interface SessionState {
         val inFlight: CardInFlight,
         val partial: String = "",
     ) : SessionState
-    data class Judging(val inFlight: CardInFlight, val transcript: String) : SessionState
+    data class Judging(
+        val inFlight: CardInFlight,
+        val transcript: String,
+        /** Quand la reponse a fini d'etre entendue, pour mesurer le silence qui suit. */
+        val heardAtMs: Long = 0L,
+    ) : SessionState
     data class SpeakingVerdict(
         val inFlight: CardInFlight,
         val assessment: Assessment,
         /** La reponse telle qu'entendue : elle doit atteindre le journal. */
         val transcript: String = "",
+        /** Le silence subi entre la fin de la reponse et ce verdict. */
+        val attenteMs: Long? = null,
     ) : SessionState
     data class AwaitingCorrection(
         val inFlight: CardInFlight,
         val assessment: Assessment,
         val transcript: String = "",
+        /** Reportee depuis [SpeakingVerdict] : c'est ici que la carte se fige. */
+        val attenteMs: Long? = null,
     ) : SessionState
     /**
      * Parenthese ouverte sur une carte deja repondue : on la renote ou on se la fait
