@@ -731,6 +731,24 @@ object ReviewSessionEngine {
         )
     }
 
+    /** Renvoie au jugement une reponse qu'on a decide de ne plus attendre. */
+    private fun juger(
+        session: Session,
+        state: SessionState.Judging,
+        transcript: String,
+    ): Reduction = Reduction(
+        session,
+        listOf(
+            Effect.Judge(
+                card = state.inFlight.card,
+                expectedPoints = state.inFlight.expectedPoints,
+                transcript = transcript,
+                memory = session.memory,
+                langueCorrection = langueVerdict(session, state.inFlight),
+            ),
+        ),
+    )
+
     /**
      * L'utilisateur demandait quelque chose au lieu de repondre. On rejoue exactement le
      * chemin de la commande vocale correspondante : rien n'est note, et la carte en cours
@@ -779,6 +797,27 @@ object ReviewSessionEngine {
             }
 
             Intention.ARRETER -> finish(session, nowMs)
+
+            // La phrase a ete tranchee pendant qu'il reflechissait. On garde le debut,
+            // on relance, et la suite viendra s'y recoller. Une seule fois par carte :
+            // au-dela, insister vaut moins que juger ce qu'on a.
+            Intention.INCOMPLET ->
+                if (session.askedToContinue) {
+                    juger(session, state, state.transcript)
+                } else {
+                    Reduction(
+                        session.copy(
+                            state = SessionState.Listening(enVol, state.transcript),
+                            askedToContinue = true,
+                        ),
+                        listOf(
+                            Effect.Speak(
+                                Phrases.continue_(langueCarte(enVol)),
+                                langueCarte(enVol),
+                            ),
+                        ),
+                    )
+                }
 
             Intention.REPONSE -> Reduction(session, emptyList())
         }

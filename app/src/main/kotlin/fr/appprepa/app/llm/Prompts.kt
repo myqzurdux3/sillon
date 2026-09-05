@@ -110,6 +110,15 @@ object Prompts {
 
               "reponse"   il a répondu à la question. C'est le cas de loin le plus
                           fréquent : dans le doute, c'est celui-là.
+              "incomplet" la transcription l'a tranché en pleine phrase. Deux signes,
+                          l'un ou l'autre suffit :
+                            — elle finit sur un mot tronqué, qui n'existe pas tel quel :
+                              « le hach », « s'ap », « la contrapo » ;
+                            — elle finit sur un mot grammatical qui exige une suite :
+                              « et ensuite qu'elle est », « il faut montrer que ».
+                          Une réponse brève mais close n'est PAS incomplète : « n log n »,
+                          « le chaînage et l'adressage ouvert », « non » sont des réponses.
+                          Le critère est la coupure, jamais la longueur.
               "repeter"   il demande à réentendre la question.
               "passer"    il veut passer cette carte sans la noter.
               "expliquer" il déclare ne pas savoir et demande la réponse.
@@ -214,6 +223,7 @@ object Prompts {
         // le plus frequent, et s'y tromper coute une note, alors que se tromper dans
         // l'autre sens ferait ignorer une vraie reponse.
         val intention = when (obj["intention"]?.jsonPrimitive?.contentOrNull?.lowercase()?.trim()) {
+            "incomplet" -> Intention.INCOMPLET
             "repeter" -> Intention.REPETER
             "passer" -> Intention.PASSER
             "expliquer" -> Intention.EXPLIQUER

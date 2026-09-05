@@ -122,6 +122,32 @@ class IntentionTest {
         }
     }
 
+    /**
+     * Le cas que la fenetre d'ecoute ne peut pas couvrir : une pause de plus de deux
+     * secondes et demie tranche la phrase, et il ne reste qu'un debut. Le juger
+     * reviendrait a noter faux quelqu'un qui reflechissait.
+     */
+    @Test
+    fun `une phrase tronquee est relancee, pas jugee`() {
+        val result = apres(Intention.INCOMPLET)
+        assertTrue(
+            "une phrase coupee ne doit pas partir au jugement",
+            result.effects.none { it is Effect.Judge },
+        )
+        val etat = result.session.state as SessionState.Listening
+        assertEquals("le debut de reponse doit etre garde", "peu importe", etat.partial)
+        assertTrue(result.session.askedToContinue)
+        assertEquals(listOf(Effect.Speak("Continue, je t'écoute.")), result.effects)
+    }
+
+    /** Une seule relance par carte : au-dela, insister vaut moins que juger ce qu'on a. */
+    @Test
+    fun `une deuxieme troncature est jugee plutot que relancee`() {
+        val result = apres(Intention.INCOMPLET, Session(askedToContinue = true))
+        val juge = result.effects.filterIsInstance<Effect.Judge>().single()
+        assertEquals("peu importe", juge.transcript)
+    }
+
     @Test
     fun `une vraie reponse est jugee normalement`() {
         val result = ReviewSessionEngine.reduce(

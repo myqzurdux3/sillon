@@ -78,6 +78,19 @@ data class Judgement(
 enum class Intention {
     /** Il a repondu a la question. Le cas de loin le plus frequent. */
     REPONSE,
+
+    /**
+     * Il repondait encore quand la transcription s'est arretee.
+     *
+     * La fenetre d'ecoute tranche apres deux secondes et demie de silence : mesure faite,
+     * c'est ce qu'il faut pour tolerer une pause de reflexion de deux secondes sans
+     * allonger toutes les autres reponses. Une pause plus longue coupe quand meme, et il
+     * ne reste alors qu'un debut de phrase — « le théorème de Roll s'ap ». Le juger
+     * reviendrait a noter faux quelqu'un qui reflechissait. Le modele, lui, voit
+     * immediatement qu'une phrase est tronquee.
+     */
+    INCOMPLET,
+
     REPETER,
     PASSER,
     EXPLIQUER,
