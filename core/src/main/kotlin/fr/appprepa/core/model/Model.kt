@@ -72,6 +72,14 @@ data class Judgement(
      * modele qui juge deja la reponse le dit dans le meme appel, sans latence de plus.
      */
     val intention: Intention = Intention.REPONSE,
+    /**
+     * La note explicitement dictee pour la carte precedente, quand la demande la portait :
+     * « mets très dur à la précédente au lieu de facile ».
+     *
+     * Sans elle, `REVENIR` rouvrait la carte et redemandait « tu mets quoi ? », alors que
+     * l'utilisateur venait de le dire. Deux echanges la ou un suffit, au volant.
+     */
+    val easeVoulue: Ease? = null,
 )
 
 /** Ce que l'utilisateur voulait, quand il a parle. */
@@ -97,6 +105,25 @@ enum class Intention {
     REVENIR,
     ANNULER,
     ARRETER,
+
+    /**
+     * Il demande un instant : il reflechit, il double, quelqu'un lui parle.
+     *
+     * Sans cette valeur, « attends deux secondes » etait lu comme `PASSER` — mesure faite
+     * contre le modele — et lui coutait la carte. Demander d'attendre est la chose la
+     * plus naturelle du monde au volant ; la punir est le contraire de ce qu'on veut.
+     */
+    ATTENDRE,
+
+    /**
+     * Il a dit quelque chose que le vocabulaire d'actions ne couvre pas — « vas-y plus
+     * lentement », « combien il en reste ». Sans cette valeur, ces phrases etaient
+     * ramenees de force a l'action la plus proche, et produisaient une action fausse.
+     *
+     * Une action fausse est bien pire qu'un aveu d'incomprehension : elle fait perdre une
+     * carte ou une note, et l'utilisateur ne sait meme pas pourquoi.
+     */
+    INCONNU,
 }
 
 /** Contexte reinjecte dans les prompts, de taille bornee. */

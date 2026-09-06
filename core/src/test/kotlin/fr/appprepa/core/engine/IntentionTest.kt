@@ -148,6 +148,90 @@ class IntentionTest {
         assertEquals("peu importe", juge.transcript)
     }
 
+    /**
+     * Mesure contre le modele avant correction : « attends deux secondes » etait lu comme
+     * `PASSER`. Demander un instant au volant est la chose la plus naturelle du monde, et
+     * ca lui coutait la carte.
+     */
+    @Test
+    fun `attendre rouvre l'oreille sans juger ni noter`() {
+        val result = apres(Intention.ATTENDRE)
+        assertTrue(result.session.state is SessionState.Listening)
+        assertTrue("attendre ne doit rien juger", result.effects.none { it is Effect.Judge })
+        assertTrue("attendre ne doit rien noter", result.effects.none { it is Effect.Commit })
+        assertEquals(0, result.session.stats.skipped)
+        assertEquals(listOf(Effect.Speak("D'accord, prends ton temps.")), result.effects)
+    }
+
+    /**
+     * Une action fausse coute une carte ou une note sans que l'utilisateur sache pourquoi ;
+     * un aveu d'incomprehension ne coute qu'une seconde.
+     */
+    @Test
+    fun `une demande hors vocabulaire est avouee, pas devinee`() {
+        val result = apres(Intention.INCONNU)
+        assertTrue(result.session.state is SessionState.Listening)
+        assertTrue(result.effects.none { it is Effect.Judge || it is Effect.Commit })
+        assertEquals(0, result.session.stats.skipped)
+        assertEquals(listOf(Effect.Speak("Je n'ai pas compris. Tu peux redire ?")), result.effects)
+    }
+
+    /**
+     * « mets très dur à la précédente au lieu de facile » : la note est dans la phrase,
+     * la redemander serait faire repeter l'utilisateur au volant.
+     */
+    @Test
+    fun `une note dictee pour la carte precedente s'applique sans redemander`() {
+        val precedente = PendingAnswer(
+            card = carte.copy(noteId = 9),
+            ease = Ease.EASY,
+            timeTakenMs = 1_000L,
+            record = fr.appprepa.core.model.JournalRecord(
+                atMs = 0, noteId = 9, cardOrd = 0, deckName = "Info", question = "q",
+                transcript = "t", proposedEase = Ease.EASY, committedEase = null,
+                verdict = null, mode = fr.appprepa.core.model.WriteMode.JOURNAL_ONLY,
+            ),
+        )
+        val session = Session(pending = listOf(precedente))
+        val result = ReviewSessionEngine.reduce(
+            session.copy(state = SessionState.Judging(enVol, "peu importe")),
+            Event.Judged(juge(Intention.REVENIR).copy(easeVoulue = Ease.HARD)),
+            1_000L,
+        )
+
+        assertEquals(Ease.HARD, result.session.pending.single().ease)
+        assertTrue(
+            "la question en cours doit reprendre, pas une parenthese",
+            result.session.state is SessionState.Asking,
+        )
+        assertEquals(
+            listOf(Effect.Speak("C'est noté, je passe la précédente en difficile.")),
+            result.effects,
+        )
+    }
+
+    /** Sans note dictee, on rouvre la parenthese et on demande : on n'invente pas. */
+    @Test
+    fun `revenir sans note dictee redemande`() {
+        val precedente = PendingAnswer(
+            card = carte.copy(noteId = 9),
+            ease = Ease.EASY,
+            timeTakenMs = 1_000L,
+            record = fr.appprepa.core.model.JournalRecord(
+                atMs = 0, noteId = 9, cardOrd = 0, deckName = "Info", question = "q",
+                transcript = "t", proposedEase = Ease.EASY, committedEase = null,
+                verdict = null, mode = fr.appprepa.core.model.WriteMode.JOURNAL_ONLY,
+            ),
+        )
+        val result = ReviewSessionEngine.reduce(
+            Session(pending = listOf(precedente), state = SessionState.Judging(enVol, "x")),
+            Event.Judged(juge(Intention.REVENIR)),
+            1_000L,
+        )
+        assertTrue(result.session.state is SessionState.Revisiting)
+        assertEquals(Ease.EASY, result.session.pending.single().ease)
+    }
+
     @Test
     fun `une vraie reponse est jugee normalement`() {
         val result = ReviewSessionEngine.reduce(

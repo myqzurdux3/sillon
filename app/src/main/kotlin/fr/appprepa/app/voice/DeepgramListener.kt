@@ -130,6 +130,12 @@ class DeepgramListener(
             }.let { texte ->
                 if (texte.isNullOrBlank()) ListenResult.Silence else ListenResult.Transcript(texte)
             }
+        } catch (annulation: kotlinx.coroutines.CancellationException) {
+            // L'arret demande par l'utilisateur passe par une annulation. L'avaler comme
+            // une panne rendrait un resultat au moteur au lieu de remonter, et le bouton
+            // « Arrêter » attendrait la fin de la fenetre d'ecoute pour agir.
+            micDispo.stop()
+            throw annulation
         } catch (erreur: Throwable) {
             Log.w(TAG, "ecoute interrompue : ${erreur.message}")
             // Une coupure n'est pas un silence : les confondre ferait defiler la session

@@ -128,6 +128,19 @@ object VoiceHelp {
         "c'est « repeat », pas « répète ». Les deux vocabulaires ne se mélangent jamais, " +
         "sinon la moitié des réponses déclencheraient une commande dans l'autre langue."
 
+    /**
+     * Ce que le modele comprend au-dela des tournures listees.
+     *
+     * La liste des phrases ci-dessus n'est plus un catalogue ferme : c'est le modele qui
+     * lit l'intention, et il accepte n'importe quelle formulation. Ce qui reste ferme,
+     * c'est la liste des actions — et il le dit quand une demande n'en fait pas partie.
+     */
+    const val REGLE_INTENTION = "Tu peux parler normalement : « attends deux secondes », " +
+        "« relis la question », « mets très dur à la précédente au lieu de facile » sont " +
+        "compris tels quels. Si tu demandes quelque chose que l'application ne sait pas " +
+        "faire, elle te répond qu'elle n'a pas compris — elle ne devine pas, parce " +
+        "qu'une action devinée te coûterait une carte ou une note."
+
     /** Ce qui n'est pas une commande mais se dit quand meme. */
     const val NOTE_PAUSE = "« pause » termine la session comme « stop » : il n'y a pas de reprise."
 }

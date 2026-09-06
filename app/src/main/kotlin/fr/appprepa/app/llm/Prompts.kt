@@ -125,6 +125,14 @@ object Prompts {
               "revenir"   il veut revenir sur la carte précédente pour la renoter.
               "annuler"   il veut annuler la note de la carte précédente.
               "arreter"   il veut terminer la session.
+              "attendre"  il demande un instant : il réfléchit, il double, on lui parle.
+                          « attends », « deux secondes », « laisse-moi réfléchir ».
+              "inconnu"   il demande autre chose, que cette liste ne couvre pas :
+                          « vas-y plus lentement », « combien il en reste », « répète
+                          moins vite ». N'INVENTE PAS l'action la plus proche. Une
+                          action fausse lui coûte une carte ou une note sans qu'il
+                          sache pourquoi ; un aveu d'incompréhension ne coûte qu'une
+                          seconde. Dans le doute entre deux actions, choisis "inconnu".
 
             Une réponse partielle ou hésitante reste une "reponse" : « je crois que c'est
             le théorème de Rolle mais je suis pas sûr » n'est pas une demande d'aide, c'est
@@ -133,6 +141,12 @@ object Prompts {
 
             Quand l'intention n'est pas "reponse", les autres champs sont ignorés : mets
             verdict "faux", ease 1, spoken_feedback "".
+
+            ease_voulue : uniquement avec "revenir", et seulement si la phrase dit
+            explicitement quelle note mettre à la carte précédente — « mets très dur à la
+            précédente », « la carte d'avant c'était plutôt à revoir ». Vaut 1 pour
+            à revoir, 2 pour difficile, 3 pour bien, 4 pour facile. Sinon null : on lui
+            redemandera. Ne devine jamais cette valeur, elle écrit une note dans Anki.
 
             Juge le FOND, pas la forme sonore. La réponse vient d'une transcription
             automatique : les termes techniques peuvent être mal orthographiés ou coupés.
@@ -153,8 +167,8 @@ object Prompts {
             ${consigneLangue(langueCorrection)}
 
             Réponds par :
-            {"intention":"...","verdict":"...","ease":0,"spoken_feedback":"...",
-             "formulation_note":null,"topic":"..."}
+            {"intention":"...","ease_voulue":null,"verdict":"...","ease":0,
+             "spoken_feedback":"...","formulation_note":null,"topic":"..."}
             """.trimIndent(),
         )
     }
@@ -230,11 +244,18 @@ object Prompts {
             "revenir" -> Intention.REVENIR
             "annuler" -> Intention.ANNULER
             "arreter" -> Intention.ARRETER
+            "attendre" -> Intention.ATTENDRE
+            "inconnu" -> Intention.INCONNU
             else -> Intention.REPONSE
         }
 
         return Judgement(
             intention = intention,
+            // Bornee comme toute note : elle finira dans Anki si l'ecriture est active.
+            easeVoulue = obj["ease_voulue"]?.jsonPrimitive?.intOrNull
+                ?.let { Ease.fromValue(it) }
+                ?.clampTo(buttonCount)
+                ?.takeIf { intention == Intention.REVENIR },
             verdict = verdict,
             ease = ease.clampTo(buttonCount),
             // Le code ne compte pas non plus sur le modele pour tenir sa longueur.

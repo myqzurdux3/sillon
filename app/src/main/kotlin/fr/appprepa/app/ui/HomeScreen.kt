@@ -23,6 +23,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
@@ -114,16 +116,23 @@ fun HomeScreen(
             }
         }
 
+        // La cible de touche occupe la moitie basse de l'ecran, pas seulement le mot.
+        // C'est un bouton qu'on cherche au volant, d'un pouce, sans regarder : viser un
+        // libelle de dix-huit points dans un coin demande une precision qu'on n'a pas.
         TextButton(
             onClick = if (running) onStop else onStart,
+            shape = RectangleShape,
             modifier = Modifier
                 .align(Alignment.BottomStart)
-                .padding(start = 20.dp, bottom = 24.dp),
+                .fillMaxWidth(0.5f)
+                .height(96.dp),
+            contentPadding = PaddingValues(start = 20.dp),
         ) {
             Text(
                 text = if (running) "Arrêter" else "Démarrer",
-                fontSize = 18.sp,
+                fontSize = 24.sp,
                 color = if (running) SillonPalette.accent else MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier.fillMaxWidth(),
             )
         }
 

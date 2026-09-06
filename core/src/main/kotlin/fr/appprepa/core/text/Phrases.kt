@@ -56,6 +56,27 @@ object Phrases {
         Langue.ANGLAIS -> "Do you give it again, hard, good or easy?"
     }
 
+    /** On accorde le temps demande, sans juger et sans rien noter. */
+    fun jePrendsMonTemps(langue: Langue): String = when (langue) {
+        Langue.FRANCAIS -> "D'accord, prends ton temps."
+        Langue.ANGLAIS -> "All right, take your time."
+    }
+
+    /**
+     * L'aveu d'incomprehension. Il vaut mieux que n'importe quelle action devinee : une
+     * action fausse coute une carte ou une note, cette phrase ne coute qu'une seconde.
+     */
+    fun pasCompris(langue: Langue): String = when (langue) {
+        Langue.FRANCAIS -> "Je n'ai pas compris. Tu peux redire ?"
+        Langue.ANGLAIS -> "I didn't get that. Could you say it again?"
+    }
+
+    /** La note de la carte precedente, corrigee sur demande explicite. */
+    fun corrige(langue: Langue, ease: Ease): String = when (langue) {
+        Langue.FRANCAIS -> "C'est noté, je passe la précédente en ${labelFr(ease)}."
+        Langue.ANGLAIS -> "Done, I've changed the previous one to ${labelEn(ease)}."
+    }
+
     private fun labelFr(ease: Ease): String = when (ease) {
         Ease.AGAIN -> "à revoir"
         Ease.HARD -> "difficile"

@@ -56,6 +56,12 @@ fun VoiceHelpScreen(onBack: () -> Unit) {
         )
         Spacer(Modifier.height(12.dp))
         Text(
+            VoiceHelp.REGLE_INTENTION,
+            style = MaterialTheme.typography.bodySmall,
+            color = SillonPalette.faint,
+        )
+        Spacer(Modifier.height(12.dp))
+        Text(
             VoiceHelp.REGLE_ANGLAIS,
             style = MaterialTheme.typography.bodySmall,
             color = SillonPalette.faint,

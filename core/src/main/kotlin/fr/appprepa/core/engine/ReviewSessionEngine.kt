@@ -709,7 +709,13 @@ object ReviewSessionEngine {
         // appel : agir sur sa lecture plutot que sur une liste de mots-cles est la seule
         // facon de comprendre « attends j'ai pas bien entendu tu peux redire ».
         if (event.judgement.intention != Intention.REPONSE) {
-            return surIntention(session, state, event.judgement.intention, nowMs)
+            return surIntention(
+                session,
+                state,
+                event.judgement.intention,
+                event.judgement.easeVoulue,
+                nowMs,
+            )
         }
 
         val bounded = event.judgement.copy(
@@ -764,6 +770,7 @@ object ReviewSessionEngine {
         session: Session,
         state: SessionState.Judging,
         intention: Intention,
+        easeVoulue: Ease?,
         nowMs: Long,
     ): Reduction {
         val enVol = state.inFlight
@@ -793,7 +800,26 @@ object ReviewSessionEngine {
                 listOf(Effect.Explain(enVol.card, langueVerdict(session, enVol))),
             )
 
-            Intention.REVENIR -> openRevisit(session, enVol, explaining = false)
+            // Quand la demande portait deja la note — « mets très dur à la précédente » —
+            // on l'applique et on reprend, sans rouvrir une parenthese pour redemander ce
+            // qui vient d'etre dit.
+            Intention.REVENIR -> {
+                val visee = easeVoulue
+                val cible = session.pending.lastOrNull()
+                if (visee != null && cible != null) {
+                    Reduction(
+                        regrade(session, cible, visee).copy(state = SessionState.Asking(enVol)),
+                        listOf(
+                            Effect.Speak(
+                                Phrases.corrige(langueVerdict(session, enVol), visee),
+                                langueVerdict(session, enVol),
+                            ),
+                        ),
+                    )
+                } else {
+                    openRevisit(session, enVol, explaining = false)
+                }
+            }
 
             // L'etat repasse en ecoute : la fin de l'enonce rouvre le micro sur la meme
             // question, au lieu de laisser la file de la boucle se vider en silence.
@@ -824,6 +850,30 @@ object ReviewSessionEngine {
                         ),
                     )
                 }
+
+            // Il demande un instant. On le lui laisse : l'oreille se rouvre sur la meme
+            // question, sans juger et sans rien noter.
+            Intention.ATTENDRE -> Reduction(
+                session.copy(state = SessionState.Listening(enVol), askedToContinue = false),
+                listOf(
+                    Effect.Speak(
+                        Phrases.jePrendsMonTemps(langueCarte(enVol)),
+                        langueCarte(enVol),
+                    ),
+                ),
+            )
+
+            // Une action fausse coute une carte ou une note ; un aveu d'incomprehension
+            // ne coute qu'une phrase. On avoue.
+            Intention.INCONNU -> Reduction(
+                session.copy(state = SessionState.Listening(enVol)),
+                listOf(
+                    Effect.Speak(
+                        Phrases.pasCompris(langueCarte(enVol)),
+                        langueCarte(enVol),
+                    ),
+                ),
+            )
 
             Intention.REPONSE -> Reduction(session, emptyList())
         }
